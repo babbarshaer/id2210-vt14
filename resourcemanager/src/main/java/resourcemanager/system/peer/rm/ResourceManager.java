@@ -62,7 +62,6 @@ public final class ResourceManager extends ComponentDefinition {
         }
     };
 
-	
     public ResourceManager() {
 
         subscribe(handleInit, control);
@@ -73,7 +72,8 @@ public final class ResourceManager extends ComponentDefinition {
         subscribe(handleResourceAllocationResponse, networkPort);
         subscribe(handleTManSample, tmanPort);
     }
-	
+
+    // Initialization of the Resource Manager.
     Handler<RmInit> handleInit = new Handler<RmInit>() {
         @Override
         public void handle(RmInit init) {
@@ -87,12 +87,12 @@ public final class ResourceManager extends ComponentDefinition {
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(period, period);
             rst.setTimeoutEvent(new UpdateTimeout(rst));
             trigger(rst, timerPort);
-
-
+            
+            
         }
     };
 
-
+    //TODO: Functionality needs to be implemented here.
     Handler<UpdateTimeout> handleUpdateTimeout = new Handler<UpdateTimeout>() {
         @Override
         public void handle(UpdateTimeout event) {
@@ -103,30 +103,39 @@ public final class ResourceManager extends ComponentDefinition {
             if (neighbours.isEmpty()) {
                 return;
             }
-            Address dest = neighbours.get(random.nextInt(neighbours.size()));
 
+           // TODO: What data is to be exchanged with the neighbour ?
+            Address dest = neighbours.get(random.nextInt(neighbours.size()));
+            
 
         }
     };
 
-
+    // Handler for the resource request being sent by the neighbour peer.
     Handler<RequestResources.Request> handleResourceAllocationRequest = new Handler<RequestResources.Request>() {
         @Override
         public void handle(RequestResources.Request event) {
-            // TODO 
+            // TODO : Check if the node has resources greater than the requested ones.
+            // Trigger a  response with the appropriate success variable based on the availability of the resources.
+            
         }
     };
+    
+    // Response returned by the neighbours specifying whether resources are available or not.
     Handler<RequestResources.Response> handleResourceAllocationResponse = new Handler<RequestResources.Response>() {
         @Override
         public void handle(RequestResources.Response event) {
-            // TODO 
+            // TODO: Based on the response perform different events. 
         }
     };
+    
+
+    // The random sample which is returned by the Cyclon component.
     Handler<CyclonSample> handleCyclonSample = new Handler<CyclonSample>() {
         @Override
         public void handle(CyclonSample event) {
             System.out.println("Received samples: " + event.getSample().size());
-            
+
             // receive a new list of neighbours
             neighbours.clear();
             neighbours.addAll(event.getSample());
@@ -147,23 +156,29 @@ public final class ResourceManager extends ComponentDefinition {
                 for (int i = nodes.size(); i > configuration.getMaxNumRoutingEntries(); i--) {
                     nodesToRemove.add(nodes.get(i - 1));
                 }
+                // Removing the extra nodes in the view to bring back the view size to a constant. 
+                // The node selected is based on the policy used in Cyclon.
                 nodes.removeAll(nodesToRemove);
             }
         }
     };
-	
+
+    // Request the node for probing the neighbours that are received through the cyclon to check for availability of resources.
     Handler<RequestResource> handleRequestResource = new Handler<RequestResource>() {
         @Override
         public void handle(RequestResource event) {
-            
+
             System.out.println("Allocate resources: " + event.getNumCpus() + " + " + event.getMemoryInMbs());
-            // TODO: Ask for resources from neighbours
-            // by sending a ResourceRequest
-//            RequestResources.Request req = new RequestResources.Request(self, dest,
-//            event.getNumCpus(), event.getAmountMem());
-//            trigger(req, networkPort);
+            
+            // TODO: Made change here to send request for resource to all the neighbours.
+            for (Address dest : neighbours) {
+                RequestResources.Request req = new RequestResources.Request(self, dest,event.getNumCpus(), event.getMemoryInMbs());
+                trigger(req, networkPort);
+            }
+
         }
     };
+    
     Handler<TManSample> handleTManSample = new Handler<TManSample>() {
         @Override
         public void handle(TManSample event) {

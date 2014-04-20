@@ -4,6 +4,10 @@ import java.io.Serializable;
 import se.sics.kompics.address.Address;
 
 
+/**
+ * Represents the information about the peer in the system.
+ * 
+ */
 public class PeerDescriptor implements Comparable<PeerDescriptor>, Serializable {
 	private static final long serialVersionUID = 1906679375438244117L;
 	private final Address peerAddress;

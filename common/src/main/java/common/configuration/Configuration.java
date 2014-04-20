@@ -14,6 +14,7 @@ public class Configuration {
     public static int AVAILABLE_TOPICS = 20;
     public InetAddress ip = null;
 
+    
     {
         try {
             ip = InetAddress.getLocalHost();

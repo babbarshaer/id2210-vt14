@@ -4,6 +4,9 @@ import java.util.HashSet;
 import se.sics.kompics.address.Address;
 
 
+/**
+ * Represents a single view entry used to select appropriate peer for shuffling.
+ */
 public class ViewEntry {
 	private final PeerDescriptor descriptor;
 	private final long addedAt;

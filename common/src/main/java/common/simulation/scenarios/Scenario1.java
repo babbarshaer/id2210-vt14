@@ -4,6 +4,8 @@ import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
 
 @SuppressWarnings("serial")
 public class Scenario1 extends Scenario {
+    
+    // TODO: Understand how the simulation scenario is created and executed. 
 	private static SimulationScenario scenario = new SimulationScenario() {{
                 
 		StochasticProcess process0 = new StochasticProcess() {{

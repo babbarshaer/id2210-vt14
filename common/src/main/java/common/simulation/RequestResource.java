@@ -2,6 +2,10 @@ package common.simulation;
 
 import se.sics.kompics.Event;
 
+/**
+ * Indication event for the resource manager requesting for the specified resources.
+ * 
+ */
 public final class RequestResource extends Event {
     
     private final long id;
