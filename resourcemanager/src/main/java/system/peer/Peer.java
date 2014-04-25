@@ -37,7 +37,7 @@ public final class Peer extends ComponentDefinition {
 
     private Component cyclon, tman, rm, bootstrap;
     private Address self;
-    private int bootstrapRequestPeerCount;
+    private int bootstrapRequestPeerCount;          // View Size.
     private boolean bootstrapped;
     private RmConfiguration rmConfiguration;
 
@@ -86,6 +86,7 @@ public final class Peer extends ComponentDefinition {
             trigger(new CyclonInit(cyclonConfiguration, availableResources), cyclon.getControl());
             // While booting up the peer sends the self address and initial configuration received from application to the BootStrapComponent.
             trigger(new BootstrapClientInit(self, init.getBootstrapConfiguration()), bootstrap.getControl());
+              // Sending request to the bootstrap with the overlay details .
             BootstrapRequest request = new BootstrapRequest("Cyclon", bootstrapRequestPeerCount);
             trigger(request, bootstrap.getPositive(P2pBootstrap.class));
         }
@@ -95,6 +96,7 @@ public final class Peer extends ComponentDefinition {
         @Override
         public void handle(BootstrapResponse event) {
             if (!bootstrapped) {
+                // What are these peers conceptually ... ?
                 Set<PeerEntry> somePeers = event.getPeers();
                 LinkedList<Address> cyclonInsiders = new LinkedList<Address>();
 
@@ -109,6 +111,7 @@ public final class Peer extends ComponentDefinition {
         }
     };
 
+    // Event received once the cyclon join has been completed successfully.
     Handler<JoinCompleted> handleJoinCompleted = new Handler<JoinCompleted>() {
         @Override
         public void handle(JoinCompleted event) {
@@ -116,6 +119,7 @@ public final class Peer extends ComponentDefinition {
                     availableResources.getNumFreeCpus(),
                     availableResources.getFreeMemInMbs())),
                     bootstrap.getPositive(P2pBootstrap.class));
+            // Now initialize the Resource Manager which communicates with the Cyclon to fetch the random samples.
             trigger(new RmInit(self, rmConfiguration, availableResources), rm.getControl());
         }
     };

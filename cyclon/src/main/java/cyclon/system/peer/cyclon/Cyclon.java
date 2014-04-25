@@ -36,7 +36,7 @@ public final class Cyclon extends ComponentDefinition {
 	private CyclonConfiguration cyclonConfiguration;
 	private HashMap<UUID, Address> outstandingRandomShuffles;
 
-        private AvailableResources availableResources;
+                     private AvailableResources availableResources;
 	
 	public Cyclon() {
 		outstandingRandomShuffles = new HashMap<UUID, Address>();
@@ -63,7 +63,7 @@ public final class Cyclon extends ComponentDefinition {
 
 	
 	/**
-	 * handles a request to join a Cyclon network using a set of introducer
+	 * Handles a request to join a Cyclon network using a set of insider
 	 * nodes provided in the Join event.
 	 */
 	Handler<CyclonJoin> handleJoin = new Handler<CyclonJoin>() {
@@ -85,7 +85,7 @@ public final class Cyclon extends ComponentDefinition {
 			}
 
 			Address peer = insiders.poll();
-			initiateShuffle(1, peer);
+			initiateShuffle(1, peer);   // Only called with value 1 initially.
 			joining = true;
 		}
 	};
@@ -102,7 +102,7 @@ public final class Cyclon extends ComponentDefinition {
 	private void initiateShuffle(int shuffleSize, Address randomPeer) {
 		// send the random view to a random peer
 		ArrayList<PeerDescriptor> randomDescriptors = cache.selectToSendAtActive(shuffleSize - 1, randomPeer);
-		randomDescriptors.add(new PeerDescriptor(self));
+		randomDescriptors.add(new PeerDescriptor(self));    // Here the fresh peer gets added in the exchanged view.
 		DescriptorBuffer randomBuffer = new DescriptorBuffer(self, randomDescriptors);
 		
 		ScheduleTimeout rst = new ScheduleTimeout(shuffleTimeout);
