@@ -65,8 +65,6 @@ public final class ResourceManager extends ComponentDefinition {
     };
 
     private final int probeRatio = 4;
-    private LinkedList<RequestResources.Request> peerResourceRequestList;
-    private LinkedList<RequestResources.Request> peerResourceRequestProcessedList;
     private LinkedList<ApplicationJobDetail> schedulerJobList;
     private LinkedList<PeerJobDetail> peerSubmittedJobList;
 
@@ -80,11 +78,10 @@ public final class ResourceManager extends ComponentDefinition {
         subscribe(handleResourceAllocationResponse, networkPort);
         subscribe(handleTManSample, tmanPort);
 
-        //FIXME: Add subscriptions to the ports..
-        subscribe(processExecutionDecision , networkPort);
-        subscribe(jobCompletionTimeout,timerPort);
-        subscribe(requestCompletionEvent,networkPort);
-        
+        subscribe(processExecutionDecision, networkPort);
+        subscribe(jobCompletionTimeout, timerPort);
+        subscribe(requestCompletionEvent, networkPort);
+
     }
 
     // Initialization of the Resource Manager.
@@ -97,8 +94,6 @@ public final class ResourceManager extends ComponentDefinition {
             random = new Random(init.getConfiguration().getSeed());
             availableResources = init.getAvailableResources();
             long period = configuration.getPeriod();
-            peerResourceRequestList = new LinkedList<RequestResources.Request>();
-            peerResourceRequestProcessedList = new LinkedList<RequestResources.Request>();
             schedulerJobList = new LinkedList<ApplicationJobDetail>();
             peerSubmittedJobList = new LinkedList<PeerJobDetail>();
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(period, period);
@@ -143,7 +138,6 @@ public final class ResourceManager extends ComponentDefinition {
         }
     };
 
-    // FIXME: Implement Late Binding. 
     Handler<RequestResources.Response> handleResourceAllocationResponse = new Handler<RequestResources.Response>() {
         @Override
         public void handle(RequestResources.Response event) {
@@ -164,7 +158,6 @@ public final class ResourceManager extends ComponentDefinition {
                     return;
                 }
 
-                //String status = applicationResourceRequest.get(event.getId());
                 // Check if the resource has already been requested or not.
                 JobStatusEnum status = detail.getJobStatus();
                 ProcessRequestResponse processRequestResponse = null;
@@ -235,11 +228,11 @@ public final class ResourceManager extends ComponentDefinition {
             if (neighbours.isEmpty()) {
                 return;
             }
-            
-            ApplicationJobDetail applicationJobDetail =  new ApplicationJobDetail(event);
+
+            ApplicationJobDetail applicationJobDetail = new ApplicationJobDetail(event);
             schedulerJobList.add(applicationJobDetail);
             logger.info("Job Received From Application: " + applicationJobDetail.toString());
-            
+
             for (Address dest : neighbours) {
                 // Simply send probe to first 4 neighbours for now.
                 // FIXME: Add randomization to the selection criteria.
@@ -250,7 +243,6 @@ public final class ResourceManager extends ComponentDefinition {
                 } else {
                     break;
                 }
-
             }
         }
     };
@@ -269,17 +261,21 @@ public final class ResourceManager extends ComponentDefinition {
 
         for (PeerJobDetail peerJobDetail : peerSubmittedJobList) {
 
+            //Check for jobs to be retried.
+            if (peerJobDetail.getJobStatus() == JobStatusEnum.WORKER_RETRY && availableResources.allocate(peerJobDetail.getCpu(), peerJobDetail.getMemory())) {
+                // simply go for execution.
+                executeJob(peerJobDetail);
+            } 
             // Check only for the queued jobs.
-            if (peerJobDetail.getJobStatus() == JobStatusEnum.QUEUED && availableResources.isAvailable(peerJobDetail.getCpu(), peerJobDetail.getMemory())) {
+            else if (peerJobDetail.getJobStatus() == JobStatusEnum.QUEUED && availableResources.isAvailable(peerJobDetail.getCpu(), peerJobDetail.getMemory())) {
 
                 // Reply to scheduler stating that it has been scheduled, do you want to continue.
                 RequestResources.Response response = new RequestResources.Response(self, peerJobDetail.getSchedulerAddress(), true, peerJobDetail.getRequestId());
                 trigger(response, networkPort);
                 //Update the status of the job. 
                 peerJobDetail.setJobStatus(JobStatusEnum.SCHEDULED);
-            } else {
-                break;
             }
+            // Check in the remaning queue for other jobs with lower capacity. Don't sit idle.
         }
     }
 
@@ -310,11 +306,7 @@ public final class ResourceManager extends ComponentDefinition {
                 //Check again for the available resources.
                 if (availableResources.allocate(jobDetail.getCpu(), jobDetail.getMemory())) {
 
-                    //Schedule a timeout for the resource.
-                    ScheduleTimeout st = new ScheduleTimeout(jobDetail.getTimeToHoldResource());
-                    JobCompletionTimeout timeout = new JobCompletionTimeout(st, jobDetail);
-                    st.setTimeoutEvent(timeout);
-                    trigger(st, timerPort);
+                    executeJob(jobDetail);
 
                 } else {
                     // For now just reject the job.
@@ -323,8 +315,8 @@ public final class ResourceManager extends ComponentDefinition {
                 }
 
             } else {
-                // Remove the task from the list.
-                peerSubmittedJobList.remove(jobDetail);
+                //Retry the job again.
+                jobDetail.setJobStatus(JobStatusEnum.WORKER_RETRY);
             }
         }
     };
@@ -341,7 +333,7 @@ public final class ResourceManager extends ComponentDefinition {
             PeerJobDetail jobDetail = event.getPeerJobDetail();
             availableResources.release(jobDetail.getCpu(), jobDetail.getMemory());
             logger.info("Resources Released: " + "Cpu: " + jobDetail.getCpu() + " Memory: " + jobDetail.getMemory());
-            
+
             //Step2: Remove the resource from the processed list as it has been completely processed.
             peerSubmittedJobList.remove(jobDetail);
 
@@ -369,5 +361,12 @@ public final class ResourceManager extends ComponentDefinition {
         }
     };
 
-    //FIXME: Handler for the event in case the peer informs that it doesnot have enough resources so schedule later.
+    // Execute the job successfully.
+    private void executeJob(PeerJobDetail jobDetail) {
+        //Schedule a timeout for the resource.
+        ScheduleTimeout st = new ScheduleTimeout(jobDetail.getTimeToHoldResource());
+        JobCompletionTimeout timeout = new JobCompletionTimeout(st, jobDetail);
+        st.setTimeoutEvent(timeout);
+        trigger(st, timerPort);
+    }
 }

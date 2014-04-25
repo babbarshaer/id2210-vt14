@@ -20,7 +20,9 @@ public enum JobStatusEnum {
     PROCESSING("processing"),
     EXECUTION("execution"),
     COMPLETED("completed"),
-    ABORTED("aborted");
+    ABORTED("aborted"),
+    WORKER_RETRY("workerRetry"),
+    SCHEDULER_RETRY("schedulerRetry");
 
     private final String status;
 
