@@ -17,13 +17,16 @@ public class RequestResources  {
         private final int numCpus;
         private final int amountMemInMb;
         private final int timeToHoldResource;
-
-        public Request(Address source, Address destination, int numCpus, int amountMemInMb, long requestId , int timeToHoldResource) {
+        private final List<Address> peerList;
+        
+        
+        public Request(Address source, Address destination, int numCpus, int amountMemInMb, long requestId , int timeToHoldResource , List<Address> peerList) {
             super(source, destination);
             this.numCpus = numCpus;
             this.amountMemInMb = amountMemInMb;
             this.requestId = requestId;
             this.timeToHoldResource = timeToHoldResource;
+            this.peerList = peerList;
         }
 
         public int getAmountMemInMb() {
@@ -45,7 +48,13 @@ public class RequestResources  {
             return timeToHoldResource;
         }
         
-        
+        /**
+         * 
+         * @return peer list
+         */
+        public List<Address> getPeers(){
+            return this.peerList;
+        }
         
     }
     

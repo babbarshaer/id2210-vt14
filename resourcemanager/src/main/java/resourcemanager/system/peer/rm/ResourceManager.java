@@ -38,6 +38,8 @@ import tman.system.peer.tman.TManSamplePort;
  */
 public final class ResourceManager extends ComponentDefinition {
 
+    //Testing Purposes.
+    int testJobs = 0;
     private static final Logger logger = LoggerFactory.getLogger(ResourceManager.class);
     Positive<RmPort> indexPort = positive(RmPort.class);
     Positive<Network> networkPort = positive(Network.class);
@@ -66,7 +68,7 @@ public final class ResourceManager extends ComponentDefinition {
 
     private final int probeRatio = 4;
     private LinkedList<ApplicationJobDetail> schedulerJobList;
-    private LinkedList<PeerJobDetail> peerSubmittedJobList;
+    private LinkedList<WorkerJobDetail> workerJobList;
 
     public ResourceManager() {
 
@@ -78,9 +80,9 @@ public final class ResourceManager extends ComponentDefinition {
         subscribe(handleResourceAllocationResponse, networkPort);
         subscribe(handleTManSample, tmanPort);
 
-        subscribe(processExecutionDecision, networkPort);
         subscribe(jobCompletionTimeout, timerPort);
         subscribe(requestCompletionEvent, networkPort);
+        subscribe(jobCancellationHandler, networkPort);
 
     }
 
@@ -95,7 +97,7 @@ public final class ResourceManager extends ComponentDefinition {
             availableResources = init.getAvailableResources();
             long period = configuration.getPeriod();
             schedulerJobList = new LinkedList<ApplicationJobDetail>();
-            peerSubmittedJobList = new LinkedList<PeerJobDetail>();
+            workerJobList = new LinkedList<WorkerJobDetail>();
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(period, period);
             rst.setTimeoutEvent(new UpdateTimeout(rst));
             trigger(rst, timerPort);
@@ -126,57 +128,25 @@ public final class ResourceManager extends ComponentDefinition {
         @Override
         public void handle(RequestResources.Request event) {
 
-            logger.info("Received resource request from: " + event.getSource().toString());
+            //logger.info("Received resource request from: " + event.getSource().toString());
 
             // Step1: Create an instance of job detail as submitted by the peer.
-            PeerJobDetail peerJobDetail = new PeerJobDetail(event.getNumCpus(), event.getAmountMemInMb(), event.getRequestId(), event.getTimeToHoldResource(), event.getSource());
-            peerSubmittedJobList.add(peerJobDetail);
+            WorkerJobDetail peerJobDetail = new WorkerJobDetail(event.getNumCpus(), event.getAmountMemInMb(), event.getRequestId(), event.getTimeToHoldResource(), event.getSource(), event.getPeers());
+            workerJobList.add(peerJobDetail);
 
             //Step2: Check for free resources and then allocate them.
-            checkAvailableResourcesUpdated();
+            checkResourcesAndExecute();
 
         }
     };
 
+    
+    /**
+     * @deprecated.
+     */
     Handler<RequestResources.Response> handleResourceAllocationResponse = new Handler<RequestResources.Response>() {
         @Override
         public void handle(RequestResources.Response event) {
-
-            //  If status is successfull then we have the request for the resource allocation at the front at the worker.
-            if (event.isSuccessful()) {
-
-                ApplicationJobDetail detail = null;
-
-                for (ApplicationJobDetail jobDetail : schedulerJobList) {
-                    if (jobDetail.getRequestId() == event.getId()) {
-                        detail = jobDetail;
-                        break;
-                    }
-                }
-                if (detail == null) {
-                    logger.error(" Not able to find job with Id:  " + event.getId());
-                    return;
-                }
-
-                // Check if the resource has already been requested or not.
-                JobStatusEnum status = detail.getJobStatus();
-                ProcessRequestResponse processRequestResponse = null;
-
-                if (JobStatusEnum.REQUESTED == status) {
-
-                    // Send Ack Message and update the status in the map.
-                    processRequestResponse = new ProcessRequestResponse(self, event.getSource(), event.getId(), true);
-
-                    //  applicationResourceRequest.put(event.getId(), JobStatusEnum.PROCESSING.getStatus());
-                    // update the job status of the scheduled job.
-                    detail.setJobStatus(JobStatusEnum.PROCESSING);
-
-                } else if (JobStatusEnum.PROCESSING == status) {
-                    // Send a Nack Message.
-                    processRequestResponse = new ProcessRequestResponse(self, event.getSource(), event.getId(), false);
-                }
-                trigger(processRequestResponse, networkPort);
-            }
         }
     };
 
@@ -189,7 +159,7 @@ public final class ResourceManager extends ComponentDefinition {
             // receive a new list of neighbours
             neighbours.clear();
             neighbours.addAll(event.getSample());
-
+            
             // update routing tables
             // TODO: Need for the routing tables ?
             for (Address p : neighbours) {
@@ -216,14 +186,15 @@ public final class ResourceManager extends ComponentDefinition {
         }
     };
 
-    // Request the node for probing the neighbours that are received through the cyclon to check for availability of resources.
+    
+    /**
+     * Requesting the scheduler to schedule the job.
+     */
     Handler<RequestResource> handleRequestResource = new Handler<RequestResource>() {
         @Override
         public void handle(RequestResource event) {
 
             logger.info("Allocate resources:  cpu: " + event.getNumCpus() + " + memory: " + event.getMemoryInMbs() + " + id: " + event.getId());
-
-            int counter = 0;
 
             if (neighbours.isEmpty()) {
                 return;
@@ -233,16 +204,14 @@ public final class ResourceManager extends ComponentDefinition {
             schedulerJobList.add(applicationJobDetail);
             logger.info("Job Received From Application: " + applicationJobDetail.toString());
 
-            for (Address dest : neighbours) {
-                // Simply send probe to first 4 neighbours for now.
-                // FIXME: Add randomization to the selection criteria.
-                if (counter < probeRatio) {
-                    RequestResources.Request req = new RequestResources.Request(self, dest, event.getNumCpus(), event.getMemoryInMbs(), event.getId(), event.getTimeToHoldResource());
-                    trigger(req, networkPort);
-                    counter += 1;
-                } else {
-                    break;
-                }
+            List<Address> randomNeighbours = getRandomPeersForProbing();
+            if(randomNeighbours == null){
+                logger.info(" No Scheduling for the task ...  " + applicationJobDetail.getRequestId());
+            }
+            
+            for (Address dest : randomNeighbours) {    
+                RequestResources.Request req = new RequestResources.Request(self, dest, event.getNumCpus(), event.getMemoryInMbs(), event.getId(), event.getTimeToHoldResource(), randomNeighbours);
+                trigger(req, networkPort);
             }
         }
     };
@@ -255,71 +224,60 @@ public final class ResourceManager extends ComponentDefinition {
     };
 
     /**
-     * Check for the available resources updated.
+     * Check for the available resources and execute the task if resources found.
      */
-    private void checkAvailableResourcesUpdated() {
+    private void checkResourcesAndExecute() {
 
-        for (PeerJobDetail peerJobDetail : peerSubmittedJobList) {
-
-            //Check for jobs to be retried.
-            if (peerJobDetail.getJobStatus() == JobStatusEnum.WORKER_RETRY && availableResources.allocate(peerJobDetail.getCpu(), peerJobDetail.getMemory())) {
-                // simply go for execution.
+        for (WorkerJobDetail peerJobDetail : workerJobList) {
+            
+            int cpuRequired = peerJobDetail.getCpu();
+            int memoryRequired = peerJobDetail.getMemory();
+            
+            if(peerJobDetail.getJobStatus() == JobStatusEnum.QUEUED && availableResources.allocate(cpuRequired, memoryRequired)){
+                // Resources are available.
+                
+                //Step1: Send cancel messages to the remaining peers.
+                List<Address> workers = peerJobDetail.getWorkers();
+                for(Address addr : workers){
+                    if(addr !=  self){
+                        // Send cancel Job Message to every other peer.
+                        CancelJob cancelJobMessage = new CancelJob(self, addr, peerJobDetail.getRequestId());
+                        trigger(cancelJobMessage,networkPort);
+                    }
+                }
+                //Step2: Change the status of the job, so that it is not picked again.
+                peerJobDetail.setJobStatus(JobStatusEnum.PROCESSING);
+                
+                //Step3: Execute the job.
                 executeJob(peerJobDetail);
-            } 
-            // Check only for the queued jobs.
-            else if (peerJobDetail.getJobStatus() == JobStatusEnum.QUEUED && availableResources.isAvailable(peerJobDetail.getCpu(), peerJobDetail.getMemory())) {
-
-                // Reply to scheduler stating that it has been scheduled, do you want to continue.
-                RequestResources.Response response = new RequestResources.Response(self, peerJobDetail.getSchedulerAddress(), true, peerJobDetail.getRequestId());
-                trigger(response, networkPort);
-                //Update the status of the job. 
-                peerJobDetail.setJobStatus(JobStatusEnum.SCHEDULED);
             }
-            // Check in the remaning queue for other jobs with lower capacity. Don't sit idle.
         }
     }
-
+    
     /**
-     * Process the scheduler decision regarding the execution of the task.
+     * Cross Server Job Cancellation Handler.
      */
-    Handler<ProcessRequestResponse> processExecutionDecision = new Handler<ProcessRequestResponse>() {
-
+    Handler<CancelJob> jobCancellationHandler = new Handler<CancelJob>() {
+        
         @Override
-        public void handle(ProcessRequestResponse event) {
-
-            long requestId = event.getRequestId();
-            PeerJobDetail jobDetail = null;
-
-            for (PeerJobDetail peerJobDetail : peerSubmittedJobList) {
-                if (peerJobDetail.getJobStatus() == JobStatusEnum.SCHEDULED && peerJobDetail.getRequestId() == requestId) {
-                    jobDetail = peerJobDetail;
+        public void handle(CancelJob event) {
+            
+            WorkerJobDetail requiredJobDetail = null;
+            
+            for(WorkerJobDetail peerJobDetail : workerJobList){
+                if(peerJobDetail.getRequestId() == event.getRequestId() && peerJobDetail.getJobStatus() == JobStatusEnum.QUEUED){
+                    // Job Detail Found.
+                    requiredJobDetail = peerJobDetail;
+                    logger.info("*************** Successfully Canceled the Job  *************" + requiredJobDetail.getRequestId());
                     break;
                 }
             }
-
-            if (jobDetail == null) {
-                logger.error("Job not found in the scheduled list ....");
-                return;
-            }
-
-            if (event.getStatus() == Boolean.TRUE) {
-                //Check again for the available resources.
-                if (availableResources.allocate(jobDetail.getCpu(), jobDetail.getMemory())) {
-
-                    executeJob(jobDetail);
-
-                } else {
-                    // For now just reject the job.
-                    logger.warn("The job cannot be executed due to lack of resources .... ");
-                    peerSubmittedJobList.remove(jobDetail);         // TODO: Fix this situation.
-                }
-
-            } else {
-                //Retry the job again.
-                jobDetail.setJobStatus(JobStatusEnum.WORKER_RETRY);
-            }
+            // Remove the found job detail.
+            if(requiredJobDetail != null)
+                workerJobList.remove(requiredJobDetail);
         }
     };
+    
 
     /**
      * Resource Request has been completed successfully.
@@ -330,19 +288,20 @@ public final class ResourceManager extends ComponentDefinition {
         public void handle(JobCompletionTimeout event) {
 
             //Step1: Free The resources.
-            PeerJobDetail jobDetail = event.getPeerJobDetail();
+            WorkerJobDetail jobDetail = event.getPeerJobDetail();
             availableResources.release(jobDetail.getCpu(), jobDetail.getMemory());
             logger.info("Resources Released: " + "Cpu: " + jobDetail.getCpu() + " Memory: " + jobDetail.getMemory());
 
             //Step2: Remove the resource from the processed list as it has been completely processed.
-            peerSubmittedJobList.remove(jobDetail);
+            workerJobList.remove(jobDetail);
 
             //Step3:Send the completion request to the scheduler about the completion of the request.
             JobCompletionEvent requestCompletionEvent = new JobCompletionEvent(self, jobDetail.getSchedulerAddress(), jobDetail.getRequestId());
             trigger(requestCompletionEvent, networkPort);
 
             //Check the available resources again, to see which jobs can be configured.
-            checkAvailableResourcesUpdated();
+            //TODO: Better way to execute the tasks when the capacity becomes available.
+            checkResourcesAndExecute();
 
         }
     };
@@ -357,16 +316,99 @@ public final class ResourceManager extends ComponentDefinition {
             ApplicationJobDetail jobDetail = new ApplicationJobDetail(event.getRequestId());
             schedulerJobList.remove(jobDetail);
             logger.info("Job: " + event.getRequestId() + " completed.");
-
+            
         }
     };
 
     // Execute the job successfully.
-    private void executeJob(PeerJobDetail jobDetail) {
+    private void executeJob(WorkerJobDetail jobDetail) {
         //Schedule a timeout for the resource.
         ScheduleTimeout st = new ScheduleTimeout(jobDetail.getTimeToHoldResource());
         JobCompletionTimeout timeout = new JobCompletionTimeout(st, jobDetail);
         st.setTimeoutEvent(timeout);
         trigger(st, timerPort);
     }
+
+    /**
+     * Based on the neighbors it randomly selects the neighbors to be probed
+     * randomly.
+     *
+     * @return
+     */
+    private List<Address> getRandomPeersForProbing() {
+
+        ArrayList<Address> peers = new ArrayList<Address>();
+        if (probeRatio >= neighbours.size()) {
+            peers = (ArrayList<Address>) neighbours.clone();
+        } else {
+
+            List<Integer> indexArray = new ArrayList<Integer>();
+            Random random = new Random();
+            populateIndexArrayUpdated(indexArray, random);
+
+            // It Returns with the random indexes in the list.
+            for (Integer i : indexArray) {
+                peers.add(neighbours.get(i));
+            }
+
+        }
+        return peers;
+    }
+
+    /**
+     * @deprecated 
+     * @param indexArray
+     * @param random 
+     */
+    private void populateIndexArray(List<Integer> indexArray, Random random) {
+
+        if (indexArray.size() == probeRatio) {
+            return;
+        }
+        boolean duplicateFound = false;
+        int currentRandomNumber = random.nextInt(neighbours.size());
+        //Check if the random number is present in the array.
+        for (Integer i : indexArray) {
+            if (i == currentRandomNumber) {
+                // Again search for the random index.
+                duplicateFound = true;
+                break;
+            }
+        }
+        
+        if(duplicateFound){
+            populateIndexArray(indexArray, random);
+        }
+        
+        if (!duplicateFound) {
+            indexArray.add(currentRandomNumber);
+            populateIndexArray(indexArray, random);
+
+        }
+    }
+    
+    /**
+     * Randomly select the peers.
+     * @param indexArray
+     * @param random 
+     */
+    private void populateIndexArrayUpdated(List<Integer> indexArray , Random random){
+        
+        while(indexArray.size() < probeRatio){
+            boolean duplicate = false;
+            //Iterate over the index array.
+            int nextInt = random.nextInt(neighbours.size());
+            for(Integer i : indexArray){
+                if(i == nextInt){
+                    duplicate = true;
+                    break;
+                }
+            }
+            if(!duplicate){
+                indexArray.add(nextInt);
+            }
+        }
+        
+    }
+
 }

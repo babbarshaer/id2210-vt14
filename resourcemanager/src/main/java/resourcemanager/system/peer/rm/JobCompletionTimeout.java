@@ -16,7 +16,7 @@ import se.sics.kompics.timer.Timeout;
 public class JobCompletionTimeout extends Timeout{
     
     private final RequestResources.Request resourceRequest;
-    private final PeerJobDetail peerJobDetail;
+    private final WorkerJobDetail peerJobDetail;
     
     public JobCompletionTimeout(ScheduleTimeout st , RequestResources.Request resourceRequest){
         super(st);
@@ -24,7 +24,7 @@ public class JobCompletionTimeout extends Timeout{
         this.peerJobDetail = null;
     }
     
-    public JobCompletionTimeout(ScheduleTimeout st , PeerJobDetail peerJobdetail){
+    public JobCompletionTimeout(ScheduleTimeout st , WorkerJobDetail peerJobdetail){
         super(st);
         this.peerJobDetail  = peerJobdetail;
         this.resourceRequest = null;
@@ -35,7 +35,7 @@ public class JobCompletionTimeout extends Timeout{
         return this.resourceRequest;
     }
     
-    public PeerJobDetail getPeerJobDetail (){
+    public WorkerJobDetail getPeerJobDetail (){
         return this.peerJobDetail;
     }
     
