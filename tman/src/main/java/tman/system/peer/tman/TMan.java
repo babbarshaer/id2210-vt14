@@ -91,14 +91,16 @@ public final class TMan extends ComponentDefinition {
         public void handle(CyclonSample event) {
             List<Address> cyclonPartners = event.getSample();
 
-            // merge cyclonPartners into TManPartners
+            // merge cyclonPartners into TManPartners which provides for the randomization of the neighbours.
+            
         }
     };
 
+    // Exchange the similar View with the neighbor.
     Handler<ExchangeMsg.Request> handleTManPartnersRequest = new Handler<ExchangeMsg.Request>() {
         @Override
         public void handle(ExchangeMsg.Request event) {
-
+            
         }
     };
 
@@ -106,6 +108,7 @@ public final class TMan extends ComponentDefinition {
         @Override
         public void handle(ExchangeMsg.Response event) {
 
+            // Track the responses by using the request id, generated for a particular exchange.
         }
     };
 

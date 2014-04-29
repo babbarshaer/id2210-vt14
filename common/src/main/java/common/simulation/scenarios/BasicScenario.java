@@ -92,7 +92,7 @@ public class BasicScenario extends Scenario {
             process2.startAfterTerminationOf(3000, process0);
             process3.startAfterTerminationOf(2000, process0);
             process4.startAfterStartOf(200, process1);
-         //terminateProcess.startAfterTerminationOf(100*1000, process1);
+        // terminateProcess.startAfterTerminationOf(1000*1000, process1);
         }
     };
 

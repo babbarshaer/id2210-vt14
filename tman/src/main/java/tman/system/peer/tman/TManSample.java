@@ -6,7 +6,9 @@ import java.util.ArrayList;
 import se.sics.kompics.Event;
 import se.sics.kompics.address.Address;
 
-
+/**
+ * Represents the information contained in the sample returned by the TMan sampling.
+ */
 public class TManSample extends Event {
 	ArrayList<Address> partners = new ArrayList<Address>();
 
