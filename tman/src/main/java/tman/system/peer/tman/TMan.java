@@ -85,7 +85,8 @@ public final class TMan extends ComponentDefinition {
             shuffleLength = tmanConfiguration.getShuffleLength();
             similarViewSize = tmanConfiguration.getSimilarViewSize();
             schuffleTimeout = tmanConfiguration.getShuffleTimeout();
-            gradientCache = new GradientCache(similarViewSize, self, availableResources, tmanConfiguration.getTemperature(), r);
+            gradientEnum = init.getGradientEnum();
+            gradientCache = new GradientCache(similarViewSize, self, availableResources, tmanConfiguration.getTemperature(), r, gradientEnum);
             
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(period, period);
             rst.setTimeoutEvent(new TManSchedule(rst));

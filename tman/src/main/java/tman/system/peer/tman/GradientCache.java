@@ -47,7 +47,7 @@ public class GradientCache {
     private Random r;
     private GradientEnum gradientEnum;
 
-    public GradientCache(int size, Address self, AvailableResources availableResources , double temperature , Random r) {
+    public GradientCache(int size, Address self, AvailableResources availableResources , double temperature , Random r, GradientEnum gradientEnum) {
         super();
         this.self = self;
         this.size = size;
@@ -56,7 +56,7 @@ public class GradientCache {
         this.availableResources = availableResources;
         this.temperature = temperature;
         this.r = r;
-        
+        this.gradientEnum = gradientEnum;
     }
 
     public void incrementDescriptorAges() {
@@ -302,26 +302,39 @@ public class GradientCache {
      * @return
      */
     private boolean isDecreasingOrder(PeerDescriptor partnerDescriptor1, PeerDescriptor partnerDescriptor2) {
-
-        //FIXME: Make this comparison mechanism generic enough to incorporate multiple gradients.
         
-        int nodeFreeCpu = availableResources.getNumFreeCpus();
-        int nodeFreeMemory = availableResources.getFreeMemInMbs();
-
-        int nodeFreeCpu1 = partnerDescriptor1.getFreeCpu();
-        int nodeFreeMemory1 = partnerDescriptor1.getFreeMemory();
-
-        int nodeFreeCpu2 = partnerDescriptor2.getFreeCpu();
-        int nodeFreeMemory2 = partnerDescriptor2.getFreeMemory();
-
-        // For now create a check only on the free number of cpu's to create the gradient. ( freeCpu's form the utility)
-        if ((nodeFreeCpu1 >= nodeFreeCpu && nodeFreeCpu > nodeFreeCpu2) || (Math.abs(nodeFreeCpu1 - nodeFreeCpu) < Math.abs(nodeFreeCpu2 - nodeFreeCpu))) {
-            // It means the node in the view  is closer or with higher utility than the base node.
-            return true;
+        int baseNodeUtility = 0;
+        int nodeUtility1 = 0;
+        int nodeUtility2 =0 ;
+        
+        if(gradientEnum == GradientEnum.CPU){
+            baseNodeUtility = availableResources.getNumFreeCpus();
+            nodeUtility1 = partnerDescriptor1.getFreeCpu();
+            nodeUtility2 = partnerDescriptor2.getFreeCpu();
         }
-        return false;
+        
+        else if(gradientEnum  == GradientEnum.MEMORY){
+            baseNodeUtility = availableResources.getFreeMemInMbs();
+            nodeUtility1 = partnerDescriptor1.getFreeMemory();
+            nodeUtility2 = partnerDescriptor2.getFreeMemory();
+        }
+        
+        return basicUtilityPreferenceOrder(baseNodeUtility, nodeUtility1, nodeUtility2);
     }
 
+/**
+ *  Apply Simple Utility Preference Order on the supplied values.
+ *  FIXME: Come Up with a combined Utility Preference Order.
+ * @param baseNodeUtility
+ * @param nodeUtility1
+ * @param nodeUtility2 
+ */
+    
+    private boolean basicUtilityPreferenceOrder(int baseNodeUtility , int nodeUtility1 , int nodeUtility2){        
+        if((nodeUtility1 > baseNodeUtility && baseNodeUtility > nodeUtility2)  || (Math.abs(nodeUtility1-baseNodeUtility) < Math.abs(nodeUtility2 - baseNodeUtility)))
+                return true;
+        return false;
+    }
     
     /**
      * Check if the random peer is better suited to be in the view of the base

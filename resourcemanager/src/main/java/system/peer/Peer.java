@@ -25,6 +25,7 @@ import common.configuration.CyclonConfiguration;
 import common.peer.AvailableResources;
 import common.peer.PeerDescriptor;
 import cyclon.system.peer.cyclon.*;
+import tman.system.peer.tman.GradientEnum;
 import tman.system.peer.tman.TMan;
 import tman.system.peer.tman.TManInit;
 import tman.system.peer.tman.TManSamplePort;
@@ -93,7 +94,8 @@ public final class Peer extends ComponentDefinition {
             
             //Initialize the TMan configuration.
             //TODO: Gradient Change.
-            trigger(new TManInit(self, init.getTManConfiguration(), availableResources),tman.getControl());
+            // Initialize multiple Tman based on number of gradients to build.
+            trigger(new TManInit(self, init.getTManConfiguration(), availableResources, GradientEnum.CPU),tman.getControl());
         }
     };
 
