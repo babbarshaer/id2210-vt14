@@ -5,6 +5,7 @@ import common.peer.AvailableResources;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.UUID;
 
 import se.sics.kompics.ComponentDefinition;
@@ -54,7 +55,7 @@ public final class Cyclon extends ComponentDefinition {
 	Handler<CyclonInit> handleInit = new Handler<CyclonInit>() {
 		public void handle(CyclonInit init) {
 			cyclonConfiguration = init.getConfiguration();
-                        availableResources = init.getAvailableResources();
+                                                                availableResources = init.getAvailableResources();
 			shuffleLength = cyclonConfiguration.getShuffleLength();
 			shufflePeriod = cyclonConfiguration.getShufflePeriod();
 			shuffleTimeout = cyclonConfiguration.getShuffleTimeout();
@@ -102,7 +103,8 @@ public final class Cyclon extends ComponentDefinition {
 	private void initiateShuffle(int shuffleSize, Address randomPeer) {
 		// send the random view to a random peer
 		ArrayList<PeerDescriptor> randomDescriptors = cache.selectToSendAtActive(shuffleSize - 1, randomPeer);
-		randomDescriptors.add(new PeerDescriptor(self));    // Here the fresh peer gets added in the exchanged view.
+                //TODO: Gradient Change.
+		randomDescriptors.add(new PeerDescriptor(self ,availableResources.getNumFreeCpus() , availableResources.getFreeMemInMbs()));    // Here the fresh peer gets added in the exchanged view. 
 		DescriptorBuffer randomBuffer = new DescriptorBuffer(self, randomDescriptors);
 		
 		ScheduleTimeout rst = new ScheduleTimeout(shuffleTimeout);
@@ -118,7 +120,7 @@ public final class Cyclon extends ComponentDefinition {
 
 	
 	/**
-	 * Periodically, will initiate regular shuffles. This is the first half of
+	 * Periodically, will initiate regular shuffles. 
 	 * the "active thread" of the Cyclon specification.
 	 */
 	Handler<InitiateShuffle> handleInitiateShuffle = new Handler<InitiateShuffle>() {
@@ -129,7 +131,7 @@ public final class Cyclon extends ComponentDefinition {
 			
 			if (randomPeer != null) {
 				initiateShuffle(shuffleLength, randomPeer);
-                                trigger(new CyclonSample(getPartners()), samplePort);
+                                trigger(new CyclonSample(getPartners(), getPartnersInfo()), samplePort);         //TODO: Gradient Change.
 			}
 		}
 	};
@@ -177,8 +179,12 @@ public final class Cyclon extends ComponentDefinition {
 	};
 
 	
+        /**
+         * The peer has not replied to the shuffle request. Let the user know that they are talking with stale data.
+         */
 	Handler<ShuffleTimeout> handleShuffleTimeout = new Handler<ShuffleTimeout>() {
 		public void handle(ShuffleTimeout event) {
+                   
 		}
 	};
 	
@@ -199,4 +205,20 @@ public final class Cyclon extends ComponentDefinition {
 		
 		return partners;
 	}
+                    
+                    /**
+                     * Simply return the PeerDescriptors of the nodes in the random view.
+                     * @return List 
+                     */
+                    private List<PeerDescriptor> getPartnersInfo(){
+                        
+                        ArrayList<PeerDescriptor> partnersDescriptor = cache.getAll();
+                        if(partnersDescriptor.isEmpty()){
+                            return new ArrayList<PeerDescriptor>();
+                        }
+                        return (List<PeerDescriptor>)partnersDescriptor.clone();
+                        // Simply add all the elements received from the cache.
+//                        descriptorsToBeReturned.addAll(partnersDescriptor);
+//                        return descriptorsToBeReturned;
+                    }
 }

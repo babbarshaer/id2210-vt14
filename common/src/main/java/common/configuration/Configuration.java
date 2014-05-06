@@ -34,8 +34,9 @@ public class Configuration {
     public Configuration(long seed) throws IOException {
         this.seed = seed;
         searchConfiguration = new RmConfiguration(seed);
-        tmanConfiguration = new TManConfiguration(seed, 1000, 0.8);
-        cyclonConfiguration = new CyclonConfiguration(seed, 5, 10, 1000, 500000,
+        //Introduced view size and shuffle length for the similar view exchange.
+        tmanConfiguration = new TManConfiguration(seed, 500, 0.8,10,5, 500000);
+        cyclonConfiguration = new CyclonConfiguration(seed, 5, 10, 500, 500000,
                 (long) (Integer.MAX_VALUE - Integer.MIN_VALUE), 20);
 
         String c = File.createTempFile("bootstrap.", ".conf").getAbsolutePath();

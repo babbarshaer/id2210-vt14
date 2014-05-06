@@ -1,11 +1,13 @@
 package resourcemanager.system.peer.rm;
 
+import com.sun.jndi.dns.ResourceRecord;
 import common.configuration.RmConfiguration;
 import common.peer.AvailableResources;
 import common.simulation.RequestResource;
 import cyclon.system.peer.cyclon.CyclonSample;
 import cyclon.system.peer.cyclon.CyclonSamplePort;
 import cyclon.system.peer.cyclon.PeerDescriptor;
+import java.rmi.activation.ActivationGroup;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -28,6 +30,7 @@ import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timer;
 import se.sics.kompics.web.Web;
 import system.peer.RmPort;
+import tman.system.peer.tman.GradientEnum;
 import tman.system.peer.tman.TManSample;
 import tman.system.peer.tman.TManSamplePort;
 
@@ -47,14 +50,19 @@ public final class ResourceManager extends ComponentDefinition {
     Negative<Web> webPort = negative(Web.class);
     Positive<CyclonSamplePort> cyclonSamplePort = positive(CyclonSamplePort.class);
     Positive<TManSamplePort> tmanPort = positive(TManSamplePort.class);
-    ArrayList<Address> neighbours = new ArrayList<Address>();
+
+    ArrayList<Address> randomNeighbours = new ArrayList<Address>();
+    ArrayList<Address> cpuGradientNeighbors = new ArrayList<Address>();
+    ArrayList<Address> memoryGradientNeighbors = new ArrayList<Address>();
+    ArrayList<Address> combinedGradientNeighbors = new ArrayList<Address>();
+    GradientEnum gradientEnum = GradientEnum.CPU;
+
     private Address self;
     private RmConfiguration configuration;
     Random random;
     private AvailableResources availableResources;
-    // When you partition the index you need to find new nodes.
-    // This is a routing table maintaining a list of pairs in each partition.
-    private Map<Integer, List<PeerDescriptor>> routingTable;
+    private List<RequestResource> bufferedRequestsAtScheduler;
+    
     Comparator<PeerDescriptor> peerAgeComparator = new Comparator<PeerDescriptor>() {
         @Override
         public int compare(PeerDescriptor t, PeerDescriptor t1) {
@@ -78,7 +86,7 @@ public final class ResourceManager extends ComponentDefinition {
         subscribe(handleUpdateTimeout, timerPort);
         subscribe(handleResourceAllocationRequest, networkPort);
         subscribe(handleResourceAllocationResponse, networkPort);
-        subscribe(handleTManSample, tmanPort);
+        subscribe(handleCpuGradientTManSample, tmanPort);
 
         subscribe(jobCompletionTimeout, timerPort);
         subscribe(requestCompletionEvent, networkPort);
@@ -92,12 +100,12 @@ public final class ResourceManager extends ComponentDefinition {
         public void handle(RmInit init) {
             self = init.getSelf();
             configuration = init.getConfiguration();
-            routingTable = new HashMap<Integer, List<PeerDescriptor>>(configuration.getNumPartitions());
             random = new Random(init.getConfiguration().getSeed());
             availableResources = init.getAvailableResources();
             long period = configuration.getPeriod();
             schedulerJobList = new LinkedList<ApplicationJobDetail>();
             workerJobList = new LinkedList<WorkerJobDetail>();
+            bufferedRequestsAtScheduler = new ArrayList<RequestResource>();
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(period, period);
             rst.setTimeoutEvent(new UpdateTimeout(rst));
             trigger(rst, timerPort);
@@ -113,13 +121,12 @@ public final class ResourceManager extends ComponentDefinition {
             // pick a random neighbour to ask for index updates from. 
             // You can change this policy if you want to.
             // Maybe a gradient neighbour who is closer to the leader?
-            if (neighbours.isEmpty()) {
-                return;
-            }
-
-            // TODO: What data is to be exchanged with the neighbour ?
-            Address dest = neighbours.get(random.nextInt(neighbours.size()));
-
+//            if (neighbours.isEmpty()) {
+//                return;
+//            }
+//
+//            // TODO: What data is to be exchanged with the neighbour ?
+//            Address dest = neighbours.get(random.nextInt(neighbours.size()));
         }
     };
 
@@ -129,7 +136,6 @@ public final class ResourceManager extends ComponentDefinition {
         public void handle(RequestResources.Request event) {
 
             //logger.info("Received resource request from: " + event.getSource().toString());
-
             // Step1: Create an instance of job detail as submitted by the peer.
             WorkerJobDetail peerJobDetail = new WorkerJobDetail(event.getNumCpus(), event.getAmountMemInMb(), event.getRequestId(), event.getTimeToHoldResource(), event.getSource(), event.getPeers());
             workerJobList.add(peerJobDetail);
@@ -140,7 +146,6 @@ public final class ResourceManager extends ComponentDefinition {
         }
     };
 
-    
     /**
      * @deprecated.
      */
@@ -150,122 +155,162 @@ public final class ResourceManager extends ComponentDefinition {
         }
     };
 
-    // Periodically Cyclon sends this event to the Resource Manager which contains the random sample.
+    
+    /**
+     * Periodically Cyclon sends this event to the Resource Manager which updates the Random Neighbors.
+     */
     Handler<CyclonSample> handleCyclonSample = new Handler<CyclonSample>() {
         @Override
         public void handle(CyclonSample event) {
-            logger.info("Received samples: " + event.getSample().size());
-
-            // receive a new list of neighbours
-            neighbours.clear();
-            neighbours.addAll(event.getSample());
             
-            // update routing tables
-            // TODO: Need for the routing tables ?
-            for (Address p : neighbours) {
-                int partition = p.getId() % configuration.getNumPartitions();
-                List<PeerDescriptor> nodes = routingTable.get(partition);
-                if (nodes == null) {
-                    nodes = new ArrayList<PeerDescriptor>();
-                    routingTable.put(partition, nodes);
-                }
-                // Note - this might replace an existing entry in Lucene
-                //TODO:  For all the addresses why new entries are pushed in the tables ?
+//            logger.info("Received Cyclon Samples: " + event.getSample().size());
+            // receive a new list of neighbours
+            randomNeighbours.clear();
+            randomNeighbours.addAll(event.getSample());
 
-                nodes.add(new PeerDescriptor(p));
-                // keep the freshest descriptors in this partition
-                Collections.sort(nodes, peerAgeComparator);
-                List<PeerDescriptor> nodesToRemove = new ArrayList<PeerDescriptor>();
-                for (int i = nodes.size(); i > configuration.getMaxNumRoutingEntries(); i--) {
-                    nodesToRemove.add(nodes.get(i - 1));
-                }
-                // Removing the extra nodes in the view to bring back the view size to a constant. 
-                // The node selected is based on the policy used in Cyclon.
-                nodes.removeAll(nodesToRemove);
-            }
+            checkForBufferedJobsAtScheduler();
         }
     };
 
-    
     /**
      * Requesting the scheduler to schedule the job.
      */
     Handler<RequestResource> handleRequestResource = new Handler<RequestResource>() {
+
         @Override
         public void handle(RequestResource event) {
 
-            logger.info("Allocate resources:  cpu: " + event.getNumCpus() + " + memory: " + event.getMemoryInMbs() + " + id: " + event.getId());
+             logger.info("Allocate resources:  cpu: " + event.getNumCpus() + " + memory: " + event.getMemoryInMbs() + " + id: " + event.getId());
+            List<Address> currentNeighbors = getNeighborsBasedOnGradient();
 
-            if (neighbours.isEmpty()) {
+            //FIXME :  Check for any buffered request in case the sample is received, based on the gradient using.
+            //FIXME: A generic way to allocate the requests at this end.
+            if (currentNeighbors.isEmpty()) {
+                // FIXME : But this will create a skew in case of request distribution in case we start handling the requests like quickly.
+                // Verify by simulations that the case is valid ....
+                logger.info("Buffering the request .... " + event.getId());
+                bufferedRequestsAtScheduler.add(event);
                 return;
             }
-
-            ApplicationJobDetail applicationJobDetail = new ApplicationJobDetail(event);
-            schedulerJobList.add(applicationJobDetail);
-            logger.info("Job Received From Application: " + applicationJobDetail.toString());
-
-            List<Address> randomNeighbours = getRandomPeersForProbing();
-            if(randomNeighbours == null){
-                logger.info(" No Scheduling for the task ...  " + applicationJobDetail.getRequestId());
-            }
-            
-            for (Address dest : randomNeighbours) {    
-                RequestResources.Request req = new RequestResources.Request(self, dest, event.getNumCpus(), event.getMemoryInMbs(), event.getId(), event.getTimeToHoldResource(), randomNeighbours);
-                trigger(req, networkPort);
-            }
+           
+            scheduleTheApplicationJob(event, currentNeighbors);
         }
+
     };
 
-    Handler<TManSample> handleTManSample = new Handler<TManSample>() {
+    /**
+     * Based on the gradient specified fetch the neighbors to talk to for the
+     * request.
+     *
+     * @return
+     */
+    private List<Address> getNeighborsBasedOnGradient() {
+        
+        // By Default return random neighbours.
+        switch (gradientEnum) {
+            
+            case RANDOM:
+                return randomNeighbours;
+                
+            case CPU:
+                return cpuGradientNeighbors;
+                
+            case MEMORY:
+                return  memoryGradientNeighbors;
+                
+            case BOTH:
+                return combinedGradientNeighbors;
+                
+            default:
+                return randomNeighbours;
+        }
+    }
+
+    /**
+     * Simply Schedule the Received Resource Request.
+     *
+     * @param event
+     */
+    private void scheduleTheApplicationJob(RequestResource event, List<Address> neighbors) {
+
+        ApplicationJobDetail applicationJobDetail = new ApplicationJobDetail(event);
+        schedulerJobList.add(applicationJobDetail);
+//            logger.info("Job Received From Application: " + applicationJobDetail.toString());
+
+        List<Address> randomNeighboursSelected = getRandomPeersForProbing(neighbors);
+        if (randomNeighboursSelected == null) {
+            logger.info(" No Scheduling for the task ...  " + applicationJobDetail.getRequestId());
+        }
+
+        for (Address dest : randomNeighboursSelected) {
+            RequestResources.Request req = new RequestResources.Request(self, dest, event.getNumCpus(), event.getMemoryInMbs(), event.getId(), event.getTimeToHoldResource(), randomNeighboursSelected);
+            trigger(req, networkPort);
+        }
+    }
+
+    Handler<TManSample> handleCpuGradientTManSample = new Handler<TManSample>() {
         @Override
         public void handle(TManSample event) {
-            // TODO: 
+
+            if (event.getSample().isEmpty()) {
+                logger.info("Received Empty TMan Sample ********** ");
+                return;
+            }
+                
+//            logger.info("Received TMan Sample ..." + event.getSample().size());
+            //Simply add the neighbours received from the Tman to the neighbours.
+            List<Address> similarGradientNeighbours = event.getSample();
+            cpuGradientNeighbors.clear();
+            cpuGradientNeighbors.addAll(similarGradientNeighbours);
+            
+            checkForBufferedJobsAtScheduler();
         }
     };
 
     /**
-     * Check for the available resources and execute the task if resources found.
+     * Check for the available resources and execute the task if resources
+     * found.
      */
     private void checkResourcesAndExecute() {
 
         for (WorkerJobDetail peerJobDetail : workerJobList) {
-            
+
             int cpuRequired = peerJobDetail.getCpu();
             int memoryRequired = peerJobDetail.getMemory();
-            
-            if(peerJobDetail.getJobStatus() == JobStatusEnum.QUEUED && availableResources.allocate(cpuRequired, memoryRequired)){
+
+            if (peerJobDetail.getJobStatus() == JobStatusEnum.QUEUED && availableResources.allocate(cpuRequired, memoryRequired)) {
                 // Resources are available.
-                
+
                 //Step1: Send cancel messages to the remaining peers.
                 List<Address> workers = peerJobDetail.getWorkers();
-                for(Address addr : workers){
-                    if(addr !=  self){
+                for (Address addr : workers) {
+                    if (addr != self) {
                         // Send cancel Job Message to every other peer.
                         CancelJob cancelJobMessage = new CancelJob(self, addr, peerJobDetail.getRequestId());
-                        trigger(cancelJobMessage,networkPort);
+                        trigger(cancelJobMessage, networkPort);
                     }
                 }
                 //Step2: Change the status of the job, so that it is not picked again.
                 peerJobDetail.setJobStatus(JobStatusEnum.PROCESSING);
-                
+
                 //Step3: Execute the job.
                 executeJob(peerJobDetail);
             }
         }
     }
-    
+
     /**
      * Cross Server Job Cancellation Handler.
      */
     Handler<CancelJob> jobCancellationHandler = new Handler<CancelJob>() {
-        
+
         @Override
         public void handle(CancelJob event) {
-            
+
             WorkerJobDetail requiredJobDetail = null;
-            
-            for(WorkerJobDetail peerJobDetail : workerJobList){
-                if(peerJobDetail.getRequestId() == event.getRequestId() && peerJobDetail.getJobStatus() == JobStatusEnum.QUEUED){
+
+            for (WorkerJobDetail peerJobDetail : workerJobList) {
+                if (peerJobDetail.getRequestId() == event.getRequestId() && peerJobDetail.getJobStatus() == JobStatusEnum.QUEUED) {
                     // Job Detail Found.
                     requiredJobDetail = peerJobDetail;
                     logger.info("*************** Successfully Canceled the Job  *************" + requiredJobDetail.getRequestId());
@@ -273,11 +318,11 @@ public final class ResourceManager extends ComponentDefinition {
                 }
             }
             // Remove the found job detail.
-            if(requiredJobDetail != null)
+            if (requiredJobDetail != null) {
                 workerJobList.remove(requiredJobDetail);
+            }
         }
     };
-    
 
     /**
      * Resource Request has been completed successfully.
@@ -316,7 +361,7 @@ public final class ResourceManager extends ComponentDefinition {
             ApplicationJobDetail jobDetail = new ApplicationJobDetail(event.getRequestId());
             schedulerJobList.remove(jobDetail);
             logger.info("Job: " + event.getRequestId() + " completed.");
-            
+
         }
     };
 
@@ -335,16 +380,16 @@ public final class ResourceManager extends ComponentDefinition {
      *
      * @return
      */
-    private List<Address> getRandomPeersForProbing() {
+    private List<Address> getRandomPeersForProbing(List<Address> neighbours) {
 
         ArrayList<Address> peers = new ArrayList<Address>();
         if (probeRatio >= neighbours.size()) {
-            peers = (ArrayList<Address>) neighbours.clone();
+            return neighbours;
         } else {
 
             List<Integer> indexArray = new ArrayList<Integer>();
             Random random = new Random();
-            populateIndexArrayUpdated(indexArray, random);
+            populateIndexArrayUpdated(indexArray, random, neighbours);
 
             // It Returns with the random indexes in the list.
             for (Integer i : indexArray) {
@@ -356,59 +401,43 @@ public final class ResourceManager extends ComponentDefinition {
     }
 
     /**
-     * @deprecated 
-     * @param indexArray
-     * @param random 
-     */
-    private void populateIndexArray(List<Integer> indexArray, Random random) {
-
-        if (indexArray.size() == probeRatio) {
-            return;
-        }
-        boolean duplicateFound = false;
-        int currentRandomNumber = random.nextInt(neighbours.size());
-        //Check if the random number is present in the array.
-        for (Integer i : indexArray) {
-            if (i == currentRandomNumber) {
-                // Again search for the random index.
-                duplicateFound = true;
-                break;
-            }
-        }
-        
-        if(duplicateFound){
-            populateIndexArray(indexArray, random);
-        }
-        
-        if (!duplicateFound) {
-            indexArray.add(currentRandomNumber);
-            populateIndexArray(indexArray, random);
-
-        }
-    }
-    
-    /**
      * Randomly select the peers.
+     *
      * @param indexArray
-     * @param random 
+     * @param random
      */
-    private void populateIndexArrayUpdated(List<Integer> indexArray , Random random){
-        
-        while(indexArray.size() < probeRatio){
+    private void populateIndexArrayUpdated(List<Integer> indexArray, Random random, List<Address> neighbours) {
+
+        while (indexArray.size() < probeRatio) {
             boolean duplicate = false;
             //Iterate over the index array.
             int nextInt = random.nextInt(neighbours.size());
-            for(Integer i : indexArray){
-                if(i == nextInt){
+            for (Integer i : indexArray) {
+                if (i == nextInt) {
                     duplicate = true;
                     break;
                 }
             }
-            if(!duplicate){
+            if (!duplicate) {
                 indexArray.add(nextInt);
             }
         }
+
+    }
+    
+    /**
+     * Check for any buffered jobs to be scheduled.
+    */
+    private void checkForBufferedJobsAtScheduler(){
         
+        List<Address> neighbors = getNeighborsBasedOnGradient();
+        if(!neighbors.isEmpty()){
+            
+            for(RequestResource requestResource : bufferedRequestsAtScheduler){
+                scheduleTheApplicationJob(requestResource, neighbors);
+            }
+            bufferedRequestsAtScheduler.clear();
+        }
     }
 
 }

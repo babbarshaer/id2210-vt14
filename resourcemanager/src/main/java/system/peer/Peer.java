@@ -26,6 +26,7 @@ import common.peer.AvailableResources;
 import common.peer.PeerDescriptor;
 import cyclon.system.peer.cyclon.*;
 import tman.system.peer.tman.TMan;
+import tman.system.peer.tman.TManInit;
 import tman.system.peer.tman.TManSamplePort;
 
 public final class Peer extends ComponentDefinition {
@@ -89,6 +90,10 @@ public final class Peer extends ComponentDefinition {
               // Sending request to the bootstrap with the overlay details .
             BootstrapRequest request = new BootstrapRequest("Cyclon", bootstrapRequestPeerCount);
             trigger(request, bootstrap.getPositive(P2pBootstrap.class));
+            
+            //Initialize the TMan configuration.
+            //TODO: Gradient Change.
+            trigger(new TManInit(self, init.getTManConfiguration(), availableResources),tman.getControl());
         }
     };
 

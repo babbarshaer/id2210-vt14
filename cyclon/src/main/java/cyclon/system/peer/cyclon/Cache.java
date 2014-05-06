@@ -65,7 +65,7 @@ public class Cache {
 			cacheEntry.sentTo(destinationPeer);
 			descriptors.add(cacheEntry.getDescriptor());
 		}
-		
+                    
 		return descriptors;
 	}
 
@@ -110,7 +110,8 @@ public class Cache {
 				}
 			}
 			
-			if (entries.size() < size) {
+                                                                // View Size is equal to the size returned.
+			if (entries.size() <= size) {
 				// fill an empty slot
 				addEntry(new ViewEntry(descriptor));
 				continue;

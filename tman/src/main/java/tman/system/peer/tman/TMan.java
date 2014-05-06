@@ -6,9 +6,13 @@ import java.util.ArrayList;
 
 import cyclon.system.peer.cyclon.CyclonSample;
 import cyclon.system.peer.cyclon.CyclonSamplePort;
+import cyclon.system.peer.cyclon.DescriptorBuffer;
+import cyclon.system.peer.cyclon.PeerDescriptor;
+import cyclon.system.peer.cyclon.ShuffleTimeout;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,7 +43,14 @@ public final class TMan extends ComponentDefinition {
     private TManConfiguration tmanConfiguration;
     private Random r;
     private AvailableResources availableResources;
-
+    
+    // TODO: Gradient Change.
+    private int shuffleLength;
+    private int similarViewSize;
+    private long schuffleTimeout;
+    private GradientCache gradientCache;
+    GradientEnum gradientEnum;
+    
     public class TManSchedule extends Timeout {
 
         public TManSchedule(SchedulePeriodicTimeout request) {
@@ -64,51 +75,132 @@ public final class TMan extends ComponentDefinition {
     Handler<TManInit> handleInit = new Handler<TManInit>() {
         @Override
         public void handle(TManInit init) {
+            
             self = init.getSelf();
             tmanConfiguration = init.getConfiguration();
             period = tmanConfiguration.getPeriod();
             r = new Random(tmanConfiguration.getSeed());
             availableResources = init.getAvailableResources();
+            //TODO: Gradient Change
+            shuffleLength = tmanConfiguration.getShuffleLength();
+            similarViewSize = tmanConfiguration.getSimilarViewSize();
+            schuffleTimeout = tmanConfiguration.getShuffleTimeout();
+            gradientCache = new GradientCache(similarViewSize, self, availableResources, tmanConfiguration.getTemperature(), r);
+            
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(period, period);
             rst.setTimeoutEvent(new TManSchedule(rst));
             trigger(rst, timerPort);
-
-        }
-    };
-
-    Handler<TManSchedule> handleRound = new Handler<TManSchedule>() {
-        @Override
-        public void handle(TManSchedule event) {
-            Snapshot.updateTManPartners(self, tmanPartners);
-
-            // Publish sample to connected components
-            trigger(new TManSample(tmanPartners), tmanPort);
-        }
-    };
-
-    Handler<CyclonSample> handleCyclonSample = new Handler<CyclonSample>() {
-        @Override
-        public void handle(CyclonSample event) {
-            List<Address> cyclonPartners = event.getSample();
-
-            // merge cyclonPartners into TManPartners which provides for the randomization of the neighbours.
             
         }
     };
 
+    /**
+     * Periodically send the TMan Sample up to the Resource Manager.
+     */
+    Handler<TManSchedule> handleRound = new Handler<TManSchedule>() {
+        
+        @Override
+        public void handle(TManSchedule event) {
+            
+            Snapshot.updateTManPartners(self, getSimilarPeers());
+            Address randomPeer = gradientCache.getSoftMaxAddressForGradient();
+            
+            // Only if you find a peer to shuffle the view with you progress.
+            if(randomPeer != null){    
+                //Here you will initiate the shuffle with the neighbors for now.
+                initiateGradientShuffle(shuffleLength, randomPeer);
+                // Publish sample to connected components
+                trigger(new TManSample(getSimilarPeers()), tmanPort);
+//                printNodeViewResourceInfo();
+            }
+        }
+    };
+    
+    /**
+         * Check if the gradient is converging by printing this information.
+         */
+        private void printNodeViewResourceInfo() {
+            List<PeerDescriptor> partnerDescriptors = gradientCache.getAll();
+            for(PeerDescriptor partner : partnerDescriptors){
+                logger.info("Node: " + self + " ~~ Self Cpu:  " +availableResources.getNumFreeCpus() +  " ~~ PeerAddress: " + " ~~ Cpu: " + partner.getFreeCpu()  + " ~~ Memory: " + partner.getFreeMemory());
+            }
+        }
+
+    /**
+     * Incorporate the data received by the Cyclon in the similar view maintained by TMan.
+     */
+    Handler<CyclonSample> handleCyclonSample = new Handler<CyclonSample>() {
+        @Override
+        public void handle(CyclonSample event) {
+            
+            List<Address> randomCyclonPartners = event.getSample();
+            ArrayList<PeerDescriptor>  partnerDescriptors =  (ArrayList<PeerDescriptor>)event.getPartnersDescriptor();
+                    
+            if(randomCyclonPartners.isEmpty())
+                return;
+           
+            //Add all the cyclion samples in the gradient cache and check if they are better match.
+            gradientCache.selectToKeep(partnerDescriptors);
+           }
+    };
+    
+    /**
+     * Initiate shuffle with the neighbor.
+     */
+    private void initiateGradientShuffle(int shuffleLength , Address peerAddress){
+        
+        ArrayList<PeerDescriptor> partnerDescriptors = gradientCache.selectToSendAtActive(shuffleLength-1, peerAddress);
+        partnerDescriptors.add(new PeerDescriptor(self, availableResources.getNumFreeCpus(), availableResources.getFreeMemInMbs()));
+        
+        // Create an instance of the descriptor buffer.
+        DescriptorBuffer similarPeersBuffer = new DescriptorBuffer(self, partnerDescriptors);
+        ScheduleTimeout sst = new ScheduleTimeout(schuffleTimeout);
+        sst.setTimeoutEvent(new ShuffleTimeout(sst, peerAddress));
+        UUID requestId = sst.getTimeoutEvent().getTimeoutId();
+        
+        //FIXME: Create a List holder for the schedule timeout list.
+        ExchangeMsg.Request request = new ExchangeMsg.Request(requestId, similarPeersBuffer, self, peerAddress);
+        
+        // Trigger the timeout and the schuffle request.
+        trigger(sst, timerPort);
+        trigger(request, networkPort);
+        
+    }
+    
     // Exchange the similar View with the neighbor.
     Handler<ExchangeMsg.Request> handleTManPartnersRequest = new Handler<ExchangeMsg.Request>() {
         @Override
         public void handle(ExchangeMsg.Request event) {
             
+//            logger.info("Request For TMan Shuffling ....");
+            //Handle the Schuffle Request.
+            Address peer = event.getRandomBuffer().getFrom();
+            DescriptorBuffer receivedDescriptorBuffer = event.getRandomBuffer();
+            DescriptorBuffer descriptorBufferToSend  = new DescriptorBuffer(self, gradientCache.selectToSendAtPassive(receivedDescriptorBuffer.getSize(), peer));
+            
+            gradientCache.selectToKeep(receivedDescriptorBuffer.getDescriptors());
+            ExchangeMsg.Response response = new ExchangeMsg.Response(event.getRequestId(), descriptorBufferToSend, self , peer);
+            
+            //Send reply back to the peer.
+            trigger(response,networkPort);
         }
     };
 
+    /**
+     * T-Man View Shuffle Exchange Response Handler.
+     */
     Handler<ExchangeMsg.Response> handleTManPartnersResponse = new Handler<ExchangeMsg.Response>() {
         @Override
         public void handle(ExchangeMsg.Response event) {
 
-            // Track the responses by using the request id, generated for a particular exchange.
+            // FIXME: Remove the request id from the list of the stored id's.
+            UUID requestId = event.getRequestId();
+            //FIXME: Using this cancel the shuffle timeout id.
+            
+            Address peer = event.getSelectedBuffer().getFrom();
+            DescriptorBuffer receivedDescriptorBuffer = event.getSelectedBuffer();
+            gradientCache.selectToKeep(receivedDescriptorBuffer.getDescriptors());
+            
         }
     };
 
@@ -147,5 +239,19 @@ public final class TMan extends ComponentDefinition {
         }
         return entries.get(entries.size() - 1);
     }
-
+    
+    
+    /**
+     * Get the list of peers in the view of the node.
+     * @return 
+     */
+    private ArrayList<Address> getSimilarPeers(){
+        
+        ArrayList<Address> similarPartnersAddress = new ArrayList<Address>();
+        for(PeerDescriptor partnerDescriptor : gradientCache.getAll()){
+            similarPartnersAddress.add(partnerDescriptor.getAddress());
+        }
+        
+        return similarPartnersAddress;
+    }
 }
