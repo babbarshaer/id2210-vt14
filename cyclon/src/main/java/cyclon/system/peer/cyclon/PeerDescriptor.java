@@ -8,11 +8,12 @@ import se.sics.kompics.address.Address;
  * Represents the information about the peer in the system.
  */
 public class PeerDescriptor implements Comparable<PeerDescriptor>, Serializable {
+    
 	private static final long serialVersionUID = 1906679375438244117L;
 	private final Address peerAddress;
 	private int age;
                       
-        //TODO: Gradient Change.
+                    //TODO: Gradient Change.
                     private int freeCpu;
                     private int freeMemory;
                     
@@ -27,6 +28,14 @@ public class PeerDescriptor implements Comparable<PeerDescriptor>, Serializable 
                           this(peerAddress);
                           this.freeCpu = freeCpu;
                           this.freeMemory  = freeMemory;
+                      }
+                      
+                      // Basic Cloning of the object.
+                      public PeerDescriptor(PeerDescriptor other){
+                          this.peerAddress = other.peerAddress;
+                          this.age = other.age;
+                          this.freeCpu = other.freeCpu;
+                          this.freeMemory = other.freeMemory;
                       }
                       
                       public int getFreeMemory(){

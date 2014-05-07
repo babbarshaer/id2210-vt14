@@ -255,4 +255,13 @@ public final class TMan extends ComponentDefinition {
         
         return similarPartnersAddress;
     }
+    
+    /**
+     * Fetch Similar Peers Information Also.
+     * @return 
+     */
+    private ArrayList<PeerDescriptor> getSimilarPeersInfo(){
+        return gradientCache.getAll();
+    }
+    
 }
