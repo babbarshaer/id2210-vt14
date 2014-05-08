@@ -35,5 +35,5 @@ public final class RequestResource extends Event {
     public int getNumCpus() {
         return numCpus;
     }
-
+    
 }

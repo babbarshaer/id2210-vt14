@@ -111,7 +111,7 @@ public final class TMan extends ComponentDefinition {
                 //Here you will initiate the shuffle with the neighbors for now.
                 initiateGradientShuffle(shuffleLength, randomPeer);
                 // Publish sample to connected components
-                trigger(new TManSample(getSimilarPeers()), tmanPort);
+                trigger(new TManSample(getSimilarPeers(),getSimilarPeersInfo()), tmanPort);
 //                printNodeViewResourceInfo();
             }
         }
@@ -261,7 +261,13 @@ public final class TMan extends ComponentDefinition {
      * @return 
      */
     private ArrayList<PeerDescriptor> getSimilarPeersInfo(){
-        return gradientCache.getAll();
+        
+        ArrayList<PeerDescriptor> descriptorsToBeReturned = new ArrayList<PeerDescriptor>();
+        
+        for(PeerDescriptor neighbor : gradientCache.getAll()){
+            descriptorsToBeReturned.add(new PeerDescriptor(neighbor));
+        }
+        return descriptorsToBeReturned;
     }
     
 }

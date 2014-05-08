@@ -32,10 +32,12 @@ public class PeerDescriptor implements Comparable<PeerDescriptor>, Serializable 
                       
                       // Basic Cloning of the object.
                       public PeerDescriptor(PeerDescriptor other){
+                          
                           this.peerAddress = other.peerAddress;
                           this.age = other.age;
                           this.freeCpu = other.freeCpu;
                           this.freeMemory = other.freeMemory;
+                          
                       }
                       
                       public int getFreeMemory(){

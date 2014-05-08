@@ -16,12 +16,12 @@ public class BasicScenario extends Scenario {
     private static SimulationScenario scenario = new SimulationScenario() {
         {
 
-            SimulationScenario.StochasticProcess process0 = new SimulationScenario.StochasticProcess() {
+            SimulationScenario.StochasticProcess peerAdd0 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(1000));
                     raise(5, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(8), constant(12000)
+                            constant(2), constant(10)
                     );
                 }
             };
@@ -31,7 +31,7 @@ public class BasicScenario extends Scenario {
                     eventInterArrivalTime(constant(1000));
                     raise(5, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(4), constant(6000)
+                            constant(4), constant(1)
                     );
                 }
             };
@@ -41,7 +41,7 @@ public class BasicScenario extends Scenario {
                     eventInterArrivalTime(constant(1000));
                     raise(5, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(10), constant(16000)
+                            constant(8), constant(10)
                     );
                 }
             };
@@ -50,9 +50,9 @@ public class BasicScenario extends Scenario {
             SimulationScenario.StochasticProcess process1 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(10, Operations.requestResources(),
+                    raise(1, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(6), constant(2000),
+                            constant(6), constant(1),
                             constant(1000 * 6 * 1) // 1 minute
                     );
                 }
@@ -108,10 +108,10 @@ public class BasicScenario extends Scenario {
                     raise(1, Operations.terminate);
                 }
             };
-            process0.start();
-            peerAdd1.startAfterTerminationOf(5000,process0);
-            peerAdd2.startAfterTerminationOf(5000, peerAdd1);
-            process1.startAfterTerminationOf( 5000 , process0);
+            peerAdd0.start();
+            //peerAdd1.startAfterTerminationOf(5000,peerAdd0);
+            peerAdd2.startAfterTerminationOf(100, peerAdd0);
+            process1.startAfterTerminationOf( 500 , peerAdd0);
 //            process2.startAfterTerminationOf(3000, process0);
 //            process3.startAfterTerminationOf(2000, process0);
 //            process4.startAfterStartOf(200, process1);
