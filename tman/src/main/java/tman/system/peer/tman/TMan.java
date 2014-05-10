@@ -110,8 +110,8 @@ public final class TMan extends ComponentDefinition {
             if(randomPeer != null){    
                 //Here you will initiate the shuffle with the neighbors for now.
                 initiateGradientShuffle(shuffleLength, randomPeer);
-                // Publish sample to connected components
-                trigger(new TManSample(getSimilarPeers(),getSimilarPeersInfo()), tmanPort);
+                // Publish sample to connected components.
+                trigger(new TManSample(getSimilarPeers(),getSimilarPeersInfo(),gradientEnum), tmanPort);
 //                printNodeViewResourceInfo();
             }
         }

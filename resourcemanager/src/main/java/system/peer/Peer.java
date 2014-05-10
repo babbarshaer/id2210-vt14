@@ -37,7 +37,7 @@ public final class Peer extends ComponentDefinition {
     Positive<Network> network = positive(Network.class);
     Positive<Timer> timer = positive(Timer.class);
 
-    private Component cyclon, tman, rm, bootstrap;
+    private Component cyclon, cpuTman, rm, bootstrap, memoryTman;
     private Address self;
     private int bootstrapRequestPeerCount;          // View Size.
     private boolean bootstrapped;
@@ -45,26 +45,36 @@ public final class Peer extends ComponentDefinition {
 
     private AvailableResources availableResources;
 
+    int numberOfGradients = 5;
+
+    private Component[] gradientComponentArray;
+
     public Peer() {
         cyclon = create(Cyclon.class);
-        tman = create(TMan.class);
+        cpuTman = create(TMan.class);
+        memoryTman = create(TMan.class);
         rm = create(ResourceManager.class);
         bootstrap = create(BootstrapClient.class);
 
-        // TODO: How the parameters are chosen regarding the Positive and Negative Ports ?
         connect(network, rm.getNegative(Network.class));
         connect(network, cyclon.getNegative(Network.class));
         connect(network, bootstrap.getNegative(Network.class));
-        connect(network, tman.getNegative(Network.class));
+        connect(network, cpuTman.getNegative(Network.class));
+        connect(network, memoryTman.getNegative(Network.class));
         connect(timer, rm.getNegative(Timer.class));
         connect(timer, cyclon.getNegative(Timer.class));
         connect(timer, bootstrap.getNegative(Timer.class));
-        connect(timer, tman.getNegative(Timer.class));
+        connect(timer, cpuTman.getNegative(Timer.class));
+        connect(timer, memoryTman.getNegative(Timer.class));
         connect(cyclon.getPositive(CyclonSamplePort.class),
                 rm.getNegative(CyclonSamplePort.class));
         connect(cyclon.getPositive(CyclonSamplePort.class),
-                tman.getNegative(CyclonSamplePort.class));
-        connect(tman.getPositive(TManSamplePort.class),
+                cpuTman.getNegative(CyclonSamplePort.class));
+         connect(cyclon.getPositive(CyclonSamplePort.class),
+                memoryTman.getNegative(CyclonSamplePort.class));
+        connect(cpuTman.getPositive(TManSamplePort.class),
+                rm.getNegative(TManSamplePort.class));
+        connect(memoryTman.getPositive(TManSamplePort.class),
                 rm.getNegative(TManSamplePort.class));
 
         connect(rmPort, rm.getNegative(RmPort.class));
@@ -83,27 +93,46 @@ public final class Peer extends ComponentDefinition {
             bootstrapRequestPeerCount = cyclonConfiguration.getBootstrapRequestPeerCount();
 
             availableResources = init.getAvailableResources();
-            
+
             // Booting up the cyclon by sending event to its control port.
             trigger(new CyclonInit(cyclonConfiguration, availableResources), cyclon.getControl());
             // While booting up the peer sends the self address and initial configuration received from application to the BootStrapComponent.
             trigger(new BootstrapClientInit(self, init.getBootstrapConfiguration()), bootstrap.getControl());
-              // Sending request to the bootstrap with the overlay details .
+            // Sending request to the bootstrap with the overlay details .
             BootstrapRequest request = new BootstrapRequest("Cyclon", bootstrapRequestPeerCount);
             trigger(request, bootstrap.getPositive(P2pBootstrap.class));
-            
-            //Initialize the TMan configuration.
-            //TODO: Gradient Change.
-            // Initialize multiple Tman based on number of gradients to build.
-            trigger(new TManInit(self, init.getTManConfiguration(), availableResources, GradientEnum.CPU),tman.getControl());
+
+            // Create Both Gradients.
+            trigger(new TManInit(self, init.getTManConfiguration(), availableResources, GradientEnum.CPU), cpuTman.getControl());
+            trigger(new TManInit(self, init.getTManConfiguration(), availableResources, GradientEnum.MEMORY), memoryTman.getControl());
         }
+
+       
     };
+    
+     /**
+      * @deprecated 
+         * Based on the number of gradients, create and initialize the
+         * gradients.
+         */
+        public void intializeAndCreateGradients() {
+            gradientComponentArray = new Component[numberOfGradients];
+
+            for (int i = 0; i < numberOfGradients; i++) {
+                // Create the component.
+                gradientComponentArray[i] = create(TMan.class);
+                // Create the connections now.
+                connect(timer, gradientComponentArray[i].getNegative(Timer.class));
+                connect(cyclon.getPositive(CyclonSamplePort.class), gradientComponentArray[i].getNegative(CyclonSamplePort.class));
+                connect(gradientComponentArray[i].getPositive(TManSamplePort.class), rm.getNegative(TManSamplePort.class));
+            }
+        }
 
     Handler<BootstrapResponse> handleBootstrapResponse = new Handler<BootstrapResponse>() {
         @Override
         public void handle(BootstrapResponse event) {
             if (!bootstrapped) {
-                // What are these peers conceptually ... ?
+
                 Set<PeerEntry> somePeers = event.getPeers();
                 LinkedList<Address> cyclonInsiders = new LinkedList<Address>();
 

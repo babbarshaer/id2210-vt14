@@ -19,11 +19,14 @@ public class RescheduleJob extends Message {
 
     private final RequestResource resourceRequest;
     private int TTL;
+    private ResourceEnum dominantResource;
+    private int dominantResourceRetries;
 
     public RescheduleJob(Address source,  Address destination,  RequestResource resourceRequest) {
         super(source,destination);
         this.resourceRequest = resourceRequest;
         this.TTL = 4;
+        this.dominantResourceRetries = 3;
     }
     
     // Specified TTL 
@@ -46,4 +49,12 @@ public class RescheduleJob extends Message {
         TTL -=1;
     }
     
+    
+    public ResourceEnum getDominantResource(){
+        return this.dominantResource;
+    }
+    
+    public int getDominantResourceRetries(){
+        return this.dominantResourceRetries;
+    }
 }

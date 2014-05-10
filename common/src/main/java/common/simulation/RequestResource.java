@@ -35,5 +35,24 @@ public final class RequestResource extends Event {
     public int getNumCpus() {
         return numCpus;
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        
+        if(obj instanceof RequestResource){
+            RequestResource other = (RequestResource)obj;
+            if(this.id == other.id){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 3;
+        hash = 89 * hash + (int) (this.id ^ (this.id >>> 32));
+        return hash;
+    }
     
 }

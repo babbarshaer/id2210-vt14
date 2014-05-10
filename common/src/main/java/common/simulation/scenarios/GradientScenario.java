@@ -22,7 +22,7 @@ public class GradientScenario extends Scenario{
                     eventInterArrivalTime(constant(1000));
                     raise(5, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(2), constant(10)
+                            constant(2), constant(10000)
                     );
                 }
             };
@@ -32,7 +32,7 @@ public class GradientScenario extends Scenario{
                     eventInterArrivalTime(constant(1000));
                     raise(5, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(4), constant(10)
+                            constant(4), constant(10000)
                     );
                 }
             };
@@ -42,7 +42,7 @@ public class GradientScenario extends Scenario{
                     eventInterArrivalTime(constant(1000));
                     raise(1, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(8), constant(10)
+                            constant(8), constant(10000)
                     );
                 }
             };
@@ -53,7 +53,7 @@ public class GradientScenario extends Scenario{
                     eventInterArrivalTime(constant(100));
                     raise(1, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(6), constant(1),
+                            constant(6), constant(1000),
                             constant(1000 * 6 * 1) // 1 minute
                     );
                 }

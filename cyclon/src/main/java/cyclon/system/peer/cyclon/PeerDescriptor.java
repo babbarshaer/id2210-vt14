@@ -103,7 +103,7 @@ public class PeerDescriptor implements Comparable<PeerDescriptor>, Serializable 
 
 	@Override
 	public String toString() {
-		return peerAddress + "";
+		return " Peer Descriptor:   Address: " + peerAddress.getId() + "  FreeCPU: " + freeCpu + " FreeMemory: " + freeMemory;
 	}
 	
 }
