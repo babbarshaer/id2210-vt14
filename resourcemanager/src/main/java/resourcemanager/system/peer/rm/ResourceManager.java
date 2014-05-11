@@ -54,7 +54,6 @@ public final class ResourceManager extends ComponentDefinition {
     Positive<TManSamplePort> tmanPort = positive(TManSamplePort.class);
 
     ArrayList<Address> randomNeighbours = new ArrayList<Address>();
-    GradientEnum gradientEnum = GradientEnum.CPU;
     boolean useGradient = true;
     static final double TEMPERATURE = 0.6;
 
@@ -196,10 +195,9 @@ public final class ResourceManager extends ComponentDefinition {
      */
     private ArrayList<PeerDescriptor> getGradientNeighborsBasedOnRequest(RequestResource event) {
 
-        if (isDominant(event.getNumCpus(), event.getMemoryInMbs()/1000.0)) {
+        if (isDominant(event.getNumCpus(), event.getMemoryInMbs() / 1000.0)) {
             return cpuGradientNeighborsDescriptors;
-        } 
-        else {
+        } else {
             return memoryGradientNeighborsDescriptors;
         }
 
@@ -227,28 +225,6 @@ public final class ResourceManager extends ComponentDefinition {
         public void handle(RequestResources.Response event) {
         }
     };
-
-    /**
-     *
-     * FIXME: Change the implementation based on the dominant resource in the
-     * request.
-     *
-     * Based on the gradient specified fetch the neighbors to talk to for the
-     * request.
-     *
-     * @return
-     */
-    private ArrayList<PeerDescriptor> getNeighborsInfoBasedOnGradient() {
-
-        // By Default return random neighbours.
-        switch (gradientEnum) {
-            case CPU:
-                return cpuGradientNeighborsDescriptors;
-            default:
-                return cpuGradientNeighborsDescriptors;
-
-        }
-    }
 
     private ArrayList<Address> getRandomNeighbors() {
         return randomNeighbours;
@@ -351,7 +327,7 @@ public final class ResourceManager extends ComponentDefinition {
             RequestResource event = rescheduleJobEvent.getResourceRequest();
 
 //            logger.info("Reschedule Job Requiring  cpu: " + event.getNumCpus() + " + memory: " + event.getMemoryInMbs() + " + id: " + event.getId());
-            ArrayList<PeerDescriptor> currentNeighborsInfo = getNeighborsInfoBasedOnGradient();
+            ArrayList<PeerDescriptor> currentNeighborsInfo = getGradientNeighborsBasedOnRequest(event);
             if (currentNeighborsInfo.isEmpty()) {
                 // No samples returned by the TMan yet, so buffering the request.
                 logger.info("Buffering the re-scheduled request .... " + event.getId());
@@ -434,8 +410,7 @@ public final class ResourceManager extends ComponentDefinition {
             // STEP1: Check if current node has available resources to satisfy the request.
             if (availableResources.isAvailable(event.getNumCpus(), event.getMemoryInMbs())) {
 
-//                logger.info("Found the Available Resources to Execute .... ");
-//                System.exit(1);
+                //logger.info("Found the Available Resources to Execute .... ");
                 // Not sure if this is a good mechanism to execute the job on the rescheduled node or not, as the reliability factor reduces because of single node executing the job.
                 WorkerJobDetail workerJobDetail = new WorkerJobDetail(event.getNumCpus(), event.getMemoryInMbs(), event.getId(), event.getTimeToHoldResource(), rescheduleJobEvent.getSource(), new ArrayList<Address>());
                 workerJobList.add(workerJobDetail);
@@ -443,13 +418,7 @@ public final class ResourceManager extends ComponentDefinition {
                 return;
             }
 
-            // STEP2: Check if the TTL Has expired, because then no need to move forward.
-            if (rescheduleJobEvent.getTTL() == 0) {
-                bufferedRequestsAtScheduler.add(event);
-                return;
-            }
-
-            // STEP3: The current node doesn't have the required resources, check if any neighbors have the correspongding required resources.
+            // STEP2: The current node doesn't have the required resources, check if any neighbors have the correspongding required resources.
 //            logger.info("Reschedule Job Requiring  cpu: " + event.getNumCpus() + " + memory: " + event.getMemoryInMbs() + " + id: " + event.getId());
             ArrayList<PeerDescriptor> currentNeighborsInfo = getGradientNeighborsBasedOnRequest(event);
             if (currentNeighborsInfo.isEmpty()) {
@@ -478,67 +447,24 @@ public final class ResourceManager extends ComponentDefinition {
                 }
             }
 
-            // STEP4:  If neighbours are not found that can satisfy the request, then we move on to Re-Scheduling.
+            // STEP3:  If neighbours are not found that can satisfy the request, then we move on to Re-Scheduling.
             if (entriesFound < neighborCorrectnessCriteria) {
-
-                // Now in case, we go for rescheduling, then we need to fetch the neighbor which has better utility in terms of dominant resource or atleast the same utility as the resource requested.
-                ResourceEnum dominantResource;
-                // Step1: Find the dominant resource, in the two resources, after bringing them onto same scales.
-                if (isDominant(event.getNumCpus(), (event.getMemoryInMbs() / 1000.0))) {    
-                    dominantResource = ResourceEnum.CPU;
-                } 
-                else {
-                    dominantResource = ResourceEnum.MEMORY;
+                
+                PeerDescriptor descriptor  = canRescheduleJob(event, rescheduleJobEvent);
+                if(descriptor != null){
+                    // Further reschedule the request in the network.
+                    RescheduleJob job = new RescheduleJob(self, descriptor.getAddress(), event, rescheduleJobEvent.getTTL());
+                    job.reduceTTL();
+                    trigger(job, networkPort);
                 }
-
-                // Check for the node to  which the job is rescheduled for the utility of the dominant resource.
-                int retries = 0;
-                int maximumRetries = rescheduleJobEvent.getDominantResourceRetries();
-
-                PeerDescriptor descriptor = null;
-                while (retries < maximumRetries) {
-
-                    descriptor = getSoftMaxAddress(currentNeighborsInfo, TEMPERATURE);
-                    logger.info("Node:  " + self.getId() +" Checking: " + descriptor.toString());
-//                    if (descriptor == null) {
-//                        logger.info(" ~~  Not able to find the neighbor to reschedule the job ~~ ");
-//                        return;
-//                    }
-
-                    // Never send it to a node with a lower utility for the dominant resource.
-                    if (dominantResource == ResourceEnum.CPU) {
-                        if (descriptor.getFreeCpu() >= availableResources.getNumFreeCpus() || descriptor.getFreeCpu() >= event.getNumCpus()) {
-                            logger.info("Found a Better Descriptor .... ");
-                            break;
-                        }
-                    }
-
-                   else if (dominantResource == ResourceEnum.MEMORY) {
-                        if (descriptor.getFreeMemory() >= availableResources.getFreeMemInMbs() || descriptor.getFreeMemory() >= event.getMemoryInMbs()) {
-                            break;
-                        }
-                       
-                    }
-                    
-                     retries += 1;
-                }
-
-                if (retries == maximumRetries) {
+                else{
+                    // If no descriptor is found for any reason, then reschedule the job.
                     bufferedRequestsAtScheduler.add(event);
-                    return;
                 }
-
-                // Possible Null pointer exception can be thrown in this one.
-//                logger.info(" ~~~ Rescheduling the Job With ID: " + event.getId() + " To:  " + descriptor.getAddress() + "  ~~~ By: " + self);
-                //  Again Reschedule the event as TTL != 0
-                RescheduleJob job = new RescheduleJob(self, descriptor.getAddress(), event, rescheduleJobEvent.getTTL());
-                // Further reschedule the request in the network.
-                job.reduceTTL();
-                trigger(job, networkPort);
                 return;
             }
 
-            // STEP 5: Schedule the request in case peers with the required resources are found.
+            // STEP 3: Schedule the request in case peers with the required resources are found.
             logger.info(" ~~ ... RESCHEDULING SHOULD STOP BECAUSE FOUND THE NEIGHBOR ... ~~ ");
             randomNeighboursSelected = new ArrayList<Address>();
             for (Integer i : randomIndexArray) {
@@ -555,6 +481,64 @@ public final class ResourceManager extends ComponentDefinition {
             logger.info("Job Received From Application added to the scheduler list :  " + applicationJobDetail.toString());
         }
     };
+
+    /**
+     * Simply check if the job can be rescheduled on a Better Node.
+     *
+     * @param event
+     * @return
+     */
+    private PeerDescriptor canRescheduleJob(RequestResource event, RescheduleJob rescheduleJobEvent) {
+
+        if (rescheduleJobEvent.getTTL() == 0) {
+            return null;
+        }
+        
+        ArrayList<PeerDescriptor> currentNeighborsInfo = getGradientNeighborsBasedOnRequest(event);
+        
+        // Now in case, we go for rescheduling, then we need to fetch the neighbor which has better utility in terms of dominant resource or atleast the same utility as the resource requested.
+        ResourceEnum dominantResource;
+        // Before Starting Check the Dominant Resource.
+        if (isDominant(event.getNumCpus(), (event.getMemoryInMbs() / 1000.0))) {
+            dominantResource = ResourceEnum.CPU;
+        } 
+        else {
+            dominantResource = ResourceEnum.MEMORY;
+        }
+
+        // Check for the node to  which the job is rescheduled for the utility of the dominant resource.
+        int retries = 0;
+        int maximumRetries = rescheduleJobEvent.getDominantResourceRetries();
+
+        PeerDescriptor descriptor = null;
+        while (retries < maximumRetries) {
+
+            descriptor = getSoftMaxAddress(currentNeighborsInfo, TEMPERATURE);
+                    if (descriptor == null) {
+                        logger.info(" ~~  Not able to find the neighbor to reschedule the job ~~ ");
+                        return descriptor;
+                    }
+
+            // Never send it to a node with a lower utility for the dominant resource.
+            if (dominantResource == ResourceEnum.CPU) {
+                if (descriptor.getFreeCpu() >= availableResources.getNumFreeCpus() || descriptor.getFreeCpu() >= event.getNumCpus()) {
+                    break;
+                }
+            } 
+            else if (dominantResource == ResourceEnum.MEMORY) {
+                if (descriptor.getFreeMemory() >= availableResources.getFreeMemInMbs() || descriptor.getFreeMemory() >= event.getMemoryInMbs()) {
+                    break;
+                }
+            }
+            retries += 1;
+        }
+
+        if (retries == maximumRetries) {
+            // Not able to find a better peer.
+            return null;
+        }
+        return descriptor;
+    }
 
     /**
      * FIXME: Make this piece of code generic enough.
@@ -575,13 +559,11 @@ public final class ResourceManager extends ComponentDefinition {
 
             // Based on the gradient of the sample populate the appropriate neighbors.
             if (event.getGradientEnum() == GradientEnum.CPU) {
-                
+
 //                logger.info("CPU Gradient Sample Size: " + similarPartnersDescriptor.size());
                 cpuGradientNeighborsDescriptors.clear();
                 cpuGradientNeighborsDescriptors.addAll(similarPartnersDescriptor);
-            } 
-            
-            else if (event.getGradientEnum() == GradientEnum.MEMORY) {
+            } else if (event.getGradientEnum() == GradientEnum.MEMORY) {
                 memoryGradientNeighborsDescriptors.clear();
                 memoryGradientNeighborsDescriptors.addAll(similarPartnersDescriptor);
             }
@@ -671,7 +653,7 @@ public final class ResourceManager extends ComponentDefinition {
 
             //Check the available resources again, to see which jobs can be configured.
             checkResourcesAndExecute();
-            
+
         }
     };
 
@@ -742,11 +724,11 @@ public final class ResourceManager extends ComponentDefinition {
 
         if (useGradient) {
 
-            ArrayList<PeerDescriptor> partnerDescriptors; 
+            ArrayList<PeerDescriptor> partnerDescriptors;
             ArrayList<RequestResource> eventsTobeRemoved = new ArrayList<RequestResource>();
-            
-           for(int i =0 ; i < bufferedRequestsAtScheduler.size(); i ++){
-               
+
+            for (int i = 0; i < bufferedRequestsAtScheduler.size(); i++) {
+
                 partnerDescriptors = getGradientNeighborsBasedOnRequest(bufferedRequestsAtScheduler.get(i));
                 if (partnerDescriptors.isEmpty()) {
                     logger.info("Gradient Neighbors Not available.");
@@ -756,13 +738,13 @@ public final class ResourceManager extends ComponentDefinition {
                 scheduleTheApplicationJobOnGradient(bufferedRequestsAtScheduler.get(i), partnerDescriptors);
                 eventsTobeRemoved.add(bufferedRequestsAtScheduler.get(i));
             }
-           
-           // Remove the requests from the buffered list.
-           for(RequestResource r: eventsTobeRemoved)
-               bufferedRequestsAtScheduler.remove(r);
-           
-        } 
-        // Get neighbours from the random approach and schedule them.
+
+            // Remove the requests from the buffered list.
+            for (RequestResource r : eventsTobeRemoved) {
+                bufferedRequestsAtScheduler.remove(r);
+            }
+
+        } // Get neighbours from the random approach and schedule them.
         else {
             List<Address> neighbors = getRandomNeighbors();
 
@@ -812,8 +794,8 @@ public final class ResourceManager extends ComponentDefinition {
     }
 
     /**
-     * True if utility1 dominant on utility2. 
-     * Very Basic Comparison Mechanism to check for the Dominant utility.
+     * True if utility1 dominant on utility2. Very Basic Comparison Mechanism to
+     * check for the Dominant utility.
      *
      * @param utility1
      * @param utility2
