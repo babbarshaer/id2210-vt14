@@ -36,12 +36,16 @@ import java.util.Random;
 import se.sics.ipasdistances.AsIpGenerator;
 import system.peer.RmPort;
 import se.sics.kompics.p2p.experiment.dsl.events.TerminateExperiment;
+import simulator.snapshot.Time;
+import simulator.snapshot.UtilizationPort;
 
 public final class DataCenterSimulator extends ComponentDefinition {
 
     Positive<SimulatorPort> simulator = positive(SimulatorPort.class);
     Positive<Network> network = positive(Network.class);
     Positive<Timer> timer = positive(Timer.class);
+    Positive<UtilizationPort> utilizationPort = requires(UtilizationPort.class);
+    private Component utilizationManager;
     private final HashMap<Long, Component> peers;
     private final HashMap<Long, Address> peersAddress;
     private BootstrapConfiguration bootstrapConfiguration;
@@ -58,13 +62,14 @@ public final class DataCenterSimulator extends ComponentDefinition {
         peers = new HashMap<Long, Component>();
         peersAddress = new HashMap<Long, Address>();
         ringNodes = new ConsistentHashtable<Long>();
-
+        
         subscribe(handleInit, control);
         subscribe(handleGenerateReport, timer);
         subscribe(handlePeerJoin, simulator);
         subscribe(handlePeerFail, simulator);
         subscribe(handleTerminateExperiment, simulator);
         subscribe(handleRequestResource, simulator);
+        subscribe(schedulerTimeHandler,utilizationPort);
     }
 	
     Handler<SimulatorInit> handleInit = new Handler<SimulatorInit>() {
@@ -78,7 +83,9 @@ public final class DataCenterSimulator extends ComponentDefinition {
             tmanConfiguration = init.getTmanConfiguration();
             
             identifierSpaceSize = cyclonConfiguration.getIdentifierSpaceSize();
-
+            
+            utilizationManager = init.getUtilizationManagerComponent();
+                    
             // generate periodic report
             int snapshotPeriod = Configuration.SNAPSHOT_PERIOD;
             SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(snapshotPeriod, snapshotPeriod);
@@ -145,7 +152,6 @@ public final class DataCenterSimulator extends ComponentDefinition {
             Snapshot.report();
         }
     };
-
 	
     private void createAndStartNewPeer(long id, int numCpus, int memInMb) {
         Component peer = create(Peer.class);
@@ -157,7 +163,7 @@ public final class DataCenterSimulator extends ComponentDefinition {
         
         AvailableResources ar = new AvailableResources(numCpus, memInMb);
         trigger(new PeerInit(address, bootstrapConfiguration, cyclonConfiguration, 
-                rmConfiguration,tmanConfiguration, ar), peer.getControl());     //TODO: Gradient Change.
+                rmConfiguration,tmanConfiguration, ar, utilizationManager), peer.getControl());
 
         trigger(new Start(), peer.getControl());
         peers.put(id, peer);
@@ -173,7 +179,7 @@ public final class DataCenterSimulator extends ComponentDefinition {
 
         disconnect(network, peer.getNegative(Network.class));
         disconnect(timer, peer.getNegative(Timer.class));
-
+        
         peers.remove(id);
         Address addr = peersAddress.remove(id);
         Snapshot.removePeer(addr);
@@ -193,4 +199,17 @@ public final class DataCenterSimulator extends ComponentDefinition {
             return event.getDestination();
         }
     }
+    
+    /**
+     * Time Event from the utilization manager.
+     */
+    Handler<Time> schedulerTimeHandler = new Handler<Time>(){
+        
+        @Override
+        public void handle(Time event) {
+            
+            double sec = event.getTotalTime()/1000.0;
+            System.out.println("Total time Required for the Job Execution :" + sec +"(s)");
+        } 
+    };
 }

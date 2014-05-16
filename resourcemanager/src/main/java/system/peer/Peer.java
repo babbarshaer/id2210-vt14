@@ -25,6 +25,7 @@ import common.configuration.CyclonConfiguration;
 import common.peer.AvailableResources;
 import common.peer.PeerDescriptor;
 import cyclon.system.peer.cyclon.*;
+import simulator.snapshot.UtilizationPort;
 import tman.system.peer.tman.GradientEnum;
 import tman.system.peer.tman.TMan;
 import tman.system.peer.tman.TManInit;
@@ -44,7 +45,7 @@ public final class Peer extends ComponentDefinition {
     private RmConfiguration rmConfiguration;
 
     private AvailableResources availableResources;
-
+    private Component utilizationManager;
     int numberOfGradients = 5;
 
     private Component[] gradientComponentArray;
@@ -92,6 +93,8 @@ public final class Peer extends ComponentDefinition {
             rmConfiguration = init.getApplicationConfiguration();
             bootstrapRequestPeerCount = cyclonConfiguration.getBootstrapRequestPeerCount();
 
+            utilizationManager = init.getUtilizationManagerComponent();
+            
             availableResources = init.getAvailableResources();
 
             // Booting up the cyclon by sending event to its control port.
@@ -156,6 +159,7 @@ public final class Peer extends ComponentDefinition {
                     availableResources.getFreeMemInMbs())),
                     bootstrap.getPositive(P2pBootstrap.class));
             // Now initialize the Resource Manager which communicates with the Cyclon to fetch the random samples.
+            connect(utilizationManager.getPositive(UtilizationPort.class) , rm.getNegative(UtilizationPort.class));
             trigger(new RmInit(self, rmConfiguration, availableResources), rm.getControl());
         }
     };

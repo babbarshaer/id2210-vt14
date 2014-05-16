@@ -1,8 +1,10 @@
 package common.simulation.scenarios;
 
+import common.simulation.BootstrapUtilizationHandler;
 import common.simulation.PeerFail;
 import common.simulation.PeerJoin;
 import common.simulation.RequestResource;
+import common.simulation.ResourceRequestInitiation;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation1;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation3;
@@ -46,4 +48,22 @@ public class Operations {
             }
         };
     }
+
+    // Write an operation with the number of tasks to calculate the timestamps.
+    public static Operation<ResourceRequestInitiation> resourceRequestInitiation = new Operation<ResourceRequestInitiation>() {
+
+        @Override
+        public ResourceRequestInitiation generate() {
+            return new ResourceRequestInitiation();
+        }
+    };
+
+    public static Operation1<BootstrapUtilizationHandler, Long> bootstrapUtilizationHandler = new Operation1<BootstrapUtilizationHandler, Long>() {
+
+        @Override
+        public BootstrapUtilizationHandler generate(Long numberOfRequests) {
+            return new BootstrapUtilizationHandler(numberOfRequests);
+        }
+
+    };
 }

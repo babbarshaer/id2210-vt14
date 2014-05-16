@@ -4,6 +4,7 @@ import common.configuration.RmConfiguration;
 import common.configuration.CyclonConfiguration;
 import common.configuration.TManConfiguration;
 import common.peer.AvailableResources;
+import se.sics.kompics.Component;
 import se.sics.kompics.Init;
 import se.sics.kompics.address.Address;
 import se.sics.kompics.p2p.bootstrap.BootstrapConfiguration;
@@ -15,13 +16,14 @@ public final class PeerInit extends Init {
     private final CyclonConfiguration cyclonConfiguration;
     private final RmConfiguration applicationConfiguration;
     private final AvailableResources availableResources;
+    private final Component utilizationManager;
 
     //TODO: Gradient Change.
     private final TManConfiguration tManConfiguration;
     
     public PeerInit(Address peerSelf, BootstrapConfiguration bootstrapConfiguration,
             CyclonConfiguration cyclonConfiguration, RmConfiguration applicationConfiguration, TManConfiguration tManConfiguration,
-            AvailableResources availableResources) {
+            AvailableResources availableResources, Component utilizationManager) {
         super();
         this.peerSelf = peerSelf;
         this.bootstrapConfiguration = bootstrapConfiguration;
@@ -29,7 +31,7 @@ public final class PeerInit extends Init {
         this.applicationConfiguration = applicationConfiguration;
         this.tManConfiguration = tManConfiguration;
         this.availableResources = availableResources;
-
+        this.utilizationManager = utilizationManager;
     }
 
     public AvailableResources getAvailableResources() {
@@ -57,4 +59,7 @@ public final class PeerInit extends Init {
         return this.tManConfiguration;
     }
 
+    public Component getUtilizationManagerComponent(){
+        return this.utilizationManager;
+    }
 }

@@ -29,6 +29,7 @@ import se.sics.kompics.timer.SchedulePeriodicTimeout;
 import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timer;
 import se.sics.kompics.web.Web;
+import simulator.snapshot.UtilizationPort;
 import sun.swing.SwingUtilities2;
 import system.peer.RmPort;
 import tman.system.peer.tman.ComparatorById;
@@ -55,7 +56,9 @@ public final class ResourceManager extends ComponentDefinition {
 
     ArrayList<Address> randomNeighbours = new ArrayList<Address>();
     boolean useGradient = true;
-    static final double TEMPERATURE = 0.6;
+    static final double TEMPERATURE = 0.8;
+
+    Positive<UtilizationPort> utilizationPort = requires(UtilizationPort.class);
 
     ArrayList<PeerDescriptor> cpuGradientNeighborsDescriptors = new ArrayList<PeerDescriptor>();
     ArrayList<PeerDescriptor> memoryGradientNeighborsDescriptors = new ArrayList<PeerDescriptor>();
@@ -449,15 +452,14 @@ public final class ResourceManager extends ComponentDefinition {
 
             // STEP3:  If neighbours are not found that can satisfy the request, then we move on to Re-Scheduling.
             if (entriesFound < neighborCorrectnessCriteria) {
-                
-                PeerDescriptor descriptor  = canRescheduleJob(event, rescheduleJobEvent);
-                if(descriptor != null){
+
+                PeerDescriptor descriptor = canRescheduleJob(event, rescheduleJobEvent);
+                if (descriptor != null) {
                     // Further reschedule the request in the network.
                     RescheduleJob job = new RescheduleJob(self, descriptor.getAddress(), event, rescheduleJobEvent.getTTL());
                     job.reduceTTL();
                     trigger(job, networkPort);
-                }
-                else{
+                } else {
                     // If no descriptor is found for any reason, then reschedule the job.
                     bufferedRequestsAtScheduler.add(event);
                 }
@@ -493,16 +495,15 @@ public final class ResourceManager extends ComponentDefinition {
         if (rescheduleJobEvent.getTTL() == 0) {
             return null;
         }
-        
+
         ArrayList<PeerDescriptor> currentNeighborsInfo = getGradientNeighborsBasedOnRequest(event);
-        
+
         // Now in case, we go for rescheduling, then we need to fetch the neighbor which has better utility in terms of dominant resource or atleast the same utility as the resource requested.
         ResourceEnum dominantResource;
         // Before Starting Check the Dominant Resource.
         if (isDominant(event.getNumCpus(), (event.getMemoryInMbs() / 1000.0))) {
             dominantResource = ResourceEnum.CPU;
-        } 
-        else {
+        } else {
             dominantResource = ResourceEnum.MEMORY;
         }
 
@@ -514,18 +515,17 @@ public final class ResourceManager extends ComponentDefinition {
         while (retries < maximumRetries) {
 
             descriptor = getSoftMaxAddress(currentNeighborsInfo, TEMPERATURE);
-                    if (descriptor == null) {
-                        logger.info(" ~~  Not able to find the neighbor to reschedule the job ~~ ");
-                        return descriptor;
-                    }
+            if (descriptor == null) {
+                logger.info(" ~~  Not able to find the neighbor to reschedule the job ~~ ");
+                return descriptor;
+            }
 
             // Never send it to a node with a lower utility for the dominant resource.
             if (dominantResource == ResourceEnum.CPU) {
                 if (descriptor.getFreeCpu() >= availableResources.getNumFreeCpus() || descriptor.getFreeCpu() >= event.getNumCpus()) {
                     break;
                 }
-            } 
-            else if (dominantResource == ResourceEnum.MEMORY) {
+            } else if (dominantResource == ResourceEnum.MEMORY) {
                 if (descriptor.getFreeMemory() >= availableResources.getFreeMemInMbs() || descriptor.getFreeMemory() >= event.getMemoryInMbs()) {
                     break;
                 }
@@ -665,9 +665,13 @@ public final class ResourceManager extends ComponentDefinition {
         public void handle(JobCompletionEvent event) {
             // Simply remove the completed job.
             ApplicationJobDetail jobDetail = new ApplicationJobDetail(event.getRequestId());
-            schedulerJobList.remove(jobDetail);
-            logger.info("Job: " + event.getRequestId() + " completed.");
 
+            if (schedulerJobList.contains(jobDetail)) {
+                schedulerJobList.remove(jobDetail);
+                logger.info("Job: " + event.getRequestId() + " completed.");
+                
+                trigger(new RequestCompletion(jobDetail.getRequestId()), utilizationPort);
+            }
         }
     };
 

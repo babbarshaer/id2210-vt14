@@ -3,6 +3,7 @@ package common.simulation;
 import common.configuration.CyclonConfiguration;
 import common.configuration.RmConfiguration;
 import common.configuration.TManConfiguration;
+import se.sics.kompics.Component;
 import se.sics.kompics.Init;
 import se.sics.kompics.p2p.bootstrap.BootstrapConfiguration;
 
@@ -12,16 +13,18 @@ public final class SimulatorInit extends Init {
     private final CyclonConfiguration cyclonConfiguration;
     private final TManConfiguration tmanConfiguration;
     private final RmConfiguration aggregationConfiguration;
+    private final Component utilizationManagerComponent;
 
 	
     public SimulatorInit(BootstrapConfiguration bootstrapConfiguration,
             CyclonConfiguration cyclonConfiguration, TManConfiguration tmanConfiguration,
-            RmConfiguration aggregationConfiguration) {
+            RmConfiguration aggregationConfiguration,Component utilizationManager) {
         super();
         this.bootstrapConfiguration = bootstrapConfiguration;
         this.cyclonConfiguration = cyclonConfiguration;
         this.tmanConfiguration = tmanConfiguration;
         this.aggregationConfiguration = aggregationConfiguration;
+        this.utilizationManagerComponent = utilizationManager;
     }
 
     public RmConfiguration getAggregationConfiguration() {
@@ -41,6 +44,10 @@ public final class SimulatorInit extends Init {
 	
     public TManConfiguration getTmanConfiguration() {
         return this.tmanConfiguration;
+    }
+    
+    public Component  getUtilizationManagerComponent(){
+        return this.utilizationManagerComponent;
     }
 
 }
