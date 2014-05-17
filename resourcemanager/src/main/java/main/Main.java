@@ -6,6 +6,7 @@ import common.simulation.scenarios.BasicScenario;
 import common.simulation.scenarios.GradientScenario;
 import common.simulation.scenarios.Scenario;
 import common.simulation.scenarios.Scenario1;
+import common.simulation.scenarios.TestScenario;
 
 public class Main {
 

@@ -113,9 +113,15 @@ public final class TMan extends ComponentDefinition {
                 // Publish sample to connected components.
                 trigger(new TManSample(getSimilarPeers(),getSimilarPeersInfo(),gradientEnum), tmanPort);
 //                printNodeViewResourceInfo();
+//                printSelfInformation();
             }
         }
     };
+    
+    
+    private void printSelfInformation(){
+        logger.info("Node: " + self + " ~~ Self Cpu:  " +availableResources.getNumFreeCpus() +" ~~ Self Memory: " + availableResources.getFreeMemInMbs());
+    }
     
     /**
          * Check if the gradient is converging by printing this information.

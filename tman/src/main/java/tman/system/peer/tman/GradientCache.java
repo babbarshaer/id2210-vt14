@@ -336,33 +336,6 @@ public class GradientCache {
         return false;
     }
     
-    /**
-     * Check if the random peer is better suited to be in the view of the base
-     * node.
-     *
-     * @param randomPeerDescriptor
-     */
-    public void incorporateRandomSample(PeerDescriptor randomPeerDescriptor) {
-
-        // Check if the random sample received from the cyclon is better suited to be in the view by comparison with the lowest ranked node.
-        ViewEntry lowestRankedPeerViewEntry = entries.get(entries.size() - 1);
-
-        PeerDescriptor lowestRankedPeerDescriptor = lowestRankedPeerViewEntry.getDescriptor();
-
-        if (isDecreasingOrder(randomPeerDescriptor, lowestRankedPeerDescriptor)) {
-            // Remove the lowest rannked peer and then add the new peer.
-            removeEntry(lowestRankedPeerViewEntry);
-            addEntry(new ViewEntry(randomPeerDescriptor));
-
-            //sort the nodes again based on the new addition.
-            arrangeNodesInPreferenceOrder();
-
-            //check size, no need to check if size of the list is greater than the view size.
-            checkSize();
-        }
-    }
-    
-    
      /**
      * Select a random neighbor from the list.
      * @return 

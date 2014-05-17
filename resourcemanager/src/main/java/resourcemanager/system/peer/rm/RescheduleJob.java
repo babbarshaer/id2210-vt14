@@ -26,7 +26,7 @@ public class RescheduleJob extends Message {
         super(source,destination);
         this.resourceRequest = resourceRequest;
         this.TTL = 4;
-        this.dominantResourceRetries = 3;
+        this.dominantResourceRetries = 2;
     }
     
     // Specified TTL 
@@ -56,5 +56,22 @@ public class RescheduleJob extends Message {
     
     public int getDominantResourceRetries(){
         return this.dominantResourceRetries;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        
+        if(obj instanceof RescheduleJob){
+            RescheduleJob other = (RescheduleJob)obj;
+            if(resourceRequest.getId() == other.resourceRequest.getId()){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+       return resourceRequest.hashCode();
     }
 }

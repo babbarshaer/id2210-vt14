@@ -22,7 +22,7 @@ public class GradientScenario extends Scenario{
                     eventInterArrivalTime(constant(1000));
                     raise(5, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(2), constant(10000)
+                            constant(6), constant(5000)
                     );
                 }
             };
@@ -32,7 +32,7 @@ public class GradientScenario extends Scenario{
                     eventInterArrivalTime(constant(1000));
                     raise(5, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(4), constant(10000)
+                            constant(4), constant(4000)
                     );
                 }
             };
@@ -40,7 +40,7 @@ public class GradientScenario extends Scenario{
             SimulationScenario.StochasticProcess peerAdd2 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(1000));
-                    raise(1, Operations.peerJoin(),
+                    raise(5, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
                             constant(8), constant(10000)
                     );
@@ -51,9 +51,9 @@ public class GradientScenario extends Scenario{
             SimulationScenario.StochasticProcess process1 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(1, Operations.requestResources(),
+                    raise(400, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(6), constant(1000),
+                            constant(2), constant(6000),
                             constant(1000 * 6 * 1) // 1 minute
                     );
                 }
@@ -64,9 +64,9 @@ public class GradientScenario extends Scenario{
              SimulationScenario.StochasticProcess process2 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(50));
-                    raise(100, Operations.requestResources(),
+                    raise(1000, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(4), constant(3000),
+                            constant(3), constant(4000),
                             constant(1000 * 3 * 1) // 1 minute
                     );
                 }
@@ -75,10 +75,10 @@ public class GradientScenario extends Scenario{
              SimulationScenario.StochasticProcess process3 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(120, Operations.requestResources(),
+                    raise(1200, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(5), constant(6700),
-                            constant(1000 * 10 * 1) // 1 minute
+                            constant(6), constant(5700),
+                            constant(1000 * 4 * 1) // 1 minute
                     );
                 }
             };
@@ -113,7 +113,7 @@ public class GradientScenario extends Scenario{
             SimulationScenario.StochasticProcess bootstrapUtilizationManager = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(1, Operations.bootstrapUtilizationHandler,constant(1));
+                    raise(1, Operations.bootstrapUtilizationHandler,constant(2600));
                 }
             };
             
@@ -132,14 +132,16 @@ public class GradientScenario extends Scenario{
             bootstrapUtilizationManager.startAfterTerminationOf(100, peerAdd1);
             process1.startAfterTerminationOf( 1000 , peerAdd1);
             resourceRequestInitiation.startAtSameTimeWith(process1);
-            
+            process2.startAtSameTimeWith(process1);
+            process3.startAfterTerminationOf(1000, peerAdd1);
             peerAdd2.startAfterTerminationOf( 8000, peerAdd1);
+           
             
             //requestSchedulingCompletionProcess.startAtSameTimeWith(process1);
 //            process2.startAfterTerminationOf(3000, process0);
 //            process3.startAfterTerminationOf(2000, process0);
 //            process4.startAfterStartOf(200, process1);
-         terminateProcess.startAfterTerminationOf(1000*1000, process1);
+//         terminateProcess.startAfterTerminationOf(1000*1000, process1);
         }
     };
 

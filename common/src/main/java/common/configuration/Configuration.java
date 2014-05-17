@@ -35,8 +35,8 @@ public class Configuration {
         this.seed = seed;
         searchConfiguration = new RmConfiguration(seed);
         //Introduced view size and shuffle length for the similar view exchange.
-        tmanConfiguration = new TManConfiguration(seed, 500, 0.8,10,5, 500000);
-        cyclonConfiguration = new CyclonConfiguration(seed, 5, 10, 500, 500000,
+        tmanConfiguration = new TManConfiguration(seed, 50, 0.8,10,5, 500000);
+        cyclonConfiguration = new CyclonConfiguration(seed, 5, 10, 50, 500000,
                 (long) (Integer.MAX_VALUE - Integer.MIN_VALUE), 20);
 
         String c = File.createTempFile("bootstrap.", ".conf").getAbsolutePath();
