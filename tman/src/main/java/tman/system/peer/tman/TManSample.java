@@ -16,6 +16,7 @@ public class TManSample extends Event {
 	ArrayList<Address> partners = new ArrayList<Address>();
                      ArrayList<PeerDescriptor> partnersDescriptor = new ArrayList<PeerDescriptor>();        //FIXME: Check whether a copy of the object is sent in the message and not the original ones, as concurrent access exception.
                      private GradientEnum gradientEnum;
+                     private ArrayList<PeerDescriptor> fingerList;
 
 	public TManSample(ArrayList<Address> partners) {
 		this.partners = partners;
@@ -24,10 +25,11 @@ public class TManSample extends Event {
 	public TManSample() {
 	}
 
-                     public TManSample(ArrayList<Address> partners , ArrayList<PeerDescriptor> partnersDescriptor , GradientEnum gradientEnum){
+                     public TManSample(ArrayList<Address> partners , ArrayList<PeerDescriptor> partnersDescriptor , GradientEnum gradientEnum , ArrayList<PeerDescriptor> fingerList){
                          this.partners = partners;
                          this.partnersDescriptor = partnersDescriptor;
                          this.gradientEnum = gradientEnum;
+                         this.fingerList = fingerList;
                      }
 
 	public ArrayList<Address> getSample() {
@@ -43,4 +45,7 @@ public class TManSample extends Event {
                         return this.gradientEnum;
                     }
                     
+                    public ArrayList<PeerDescriptor> getFingerList(){
+                        return this.fingerList;
+                    }
 }

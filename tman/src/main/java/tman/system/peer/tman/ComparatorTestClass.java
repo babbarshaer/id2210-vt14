@@ -29,10 +29,10 @@ public class ComparatorTestClass {
         dummyIntegers.add(10);
         dummyIntegers.add(8);
 
-        Collections.sort(dummyIntegers, new ComparatorByResource(8));
-        for (Integer i : dummyIntegers) {
-            System.out.println("Integer Value : " + i);
-        }
+//        Collections.sort(dummyIntegers, new ComparatorByResource(8));
+//        for (Integer i : dummyIntegers) {
+//            System.out.println("Integer Value : " + i);
+//        }
         
         Integer response1 = getNeighborUsingModifiedApproach(dummyIntegers);
         Integer response2 = getNeighborUsingModifiedApproach(dummyIntegers);

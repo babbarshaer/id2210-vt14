@@ -47,6 +47,16 @@ public class TestScenario extends Scenario{
                 }
             };
             
+            SimulationScenario.StochasticProcess peerAdd3 = new SimulationScenario.StochasticProcess() {
+                {
+                    eventInterArrivalTime(constant(1000));
+                    raise(5, Operations.peerJoin(),
+                            uniform(0, Integer.MAX_VALUE),
+                            constant(10), constant(10000)
+                    );
+                }
+            };
+            
             
             SimulationScenario.StochasticProcess process1 = new SimulationScenario.StochasticProcess() {
                 {
@@ -100,7 +110,7 @@ public class TestScenario extends Scenario{
                     eventInterArrivalTime(constant(100));
                     raise(1, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(2), constant(850),
+                            constant(12), constant(850),
                             constant(1000 * 2 * 1) // 1 minute
                     );
                 }
@@ -111,7 +121,7 @@ public class TestScenario extends Scenario{
                     eventInterArrivalTime(constant(100));
                     raise(1, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(2), constant(2850),
+                            constant(2), constant(1850),
                             constant(1000 * 2 * 1) // 1 minute
                     );
                 }
@@ -160,9 +170,10 @@ public class TestScenario extends Scenario{
 //            resourceRequestInitiation.startAtSameTimeWith(process1);
 //            process2.startAtSameTimeWith(process1);
 //            process3.startAfterTerminationOf(1000, peerAdd1);
-//            peerAdd2.startAfterTerminationOf( 8000, peerAdd1);
+            peerAdd2.startAfterTerminationOf( 800, peerAdd1);
+            peerAdd3.startAfterTerminationOf(800, peerAdd2);
+            
            testProcess1.startAfterTerminationOf(100, peerAdd1);
-           
            testProcess2.startAfterTerminationOf(100, peerAdd1);
             
             //requestSchedulingCompletionProcess.startAtSameTimeWith(process1);

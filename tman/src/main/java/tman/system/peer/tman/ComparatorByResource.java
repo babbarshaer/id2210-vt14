@@ -3,39 +3,46 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
 package tman.system.peer.tman;
 
+import cyclon.system.peer.cyclon.PeerDescriptor;
 import java.util.Comparator;
 
 /**
  *
  * @author babbarshaer
  */
-public class ComparatorByResource implements Comparator<Integer>{
+public class ComparatorByResource implements Comparator<PeerDescriptor> {
 
-    private Integer resource;
-    
-    public ComparatorByResource(Integer resource){
-        this.resource = resource;
+    GradientEnum gradientEnum;
+
+    public ComparatorByResource(GradientEnum gradientEnum) {
+        this.gradientEnum = gradientEnum;
     }
-    
+
     @Override
-    public int compare(Integer o1, Integer o2) {
-        
-        assert(o1 == o2);
-        if( o1 > resource && o2 <resource)
-            return -1;        
-        else if( o2 > resource && o1 < resource)
-            return 1;
-        else if(Math.abs(resource-o1) < Math.abs(resource-o2))
-            return -1;
-        
-        return 1;
-        
+    public int compare(PeerDescriptor o1, PeerDescriptor o2) {
+
+        if (gradientEnum == GradientEnum.CPU) {
+
+            if (o1.getFreeCpu() > o2.getFreeCpu()) {
+                return -1;
+            } else if (o2.getFreeCpu() > o1.getFreeCpu()) {
+                return 1;
+            } else {
+                return 0;
+            }
+        } else {
+
+            if (o1.getFreeMemory() > o2.getFreeMemory()) {
+                return 1;
+            } else if (o2.getFreeMemory() > o1.getFreeMemory()) {
+                return -1;
+            } else {
+                return 0;
+            }
+        }
+
     }
-    
-    
-    
-    
+
 }
