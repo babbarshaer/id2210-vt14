@@ -13,11 +13,14 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import resourcemanager.system.peer.rm.RequestCompletion;
+import resourcemanager.system.peer.rm.UpdateTimeout;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.kompics.p2p.simulator.P2pSimulator;
+import se.sics.kompics.timer.SchedulePeriodicTimeout;
+import se.sics.kompics.timer.Timer;
 
 /**
  * Simply get the Utilization from the Peers and then Basically, calculate the
@@ -32,18 +35,34 @@ public class UtilizationManager extends ComponentDefinition {
     Positive<SimulatorPort> p2pSimulatorPort = requires(SimulatorPort.class);
     long startTime;
     long finishTime;
-    
+
     private final Logger logger = LoggerFactory.getLogger(UtilizationManager.class);
-    
+
     // Create A UtilizationManager Port to send the data to.
     Negative<UtilizationPort> utilizationManagerPort = provides(UtilizationPort.class);
+    Positive<Timer> timerport = requires(Timer.class);
 
     public UtilizationManager() {
+
         subscribe(bootstrapHandler, p2pSimulatorPort);
         subscribe(requestInitiationHandler, p2pSimulatorPort);
         subscribe(requestCompletionHandler, utilizationManagerPort);
-        
+        subscribe(updateTimeoutHandler, timerport);
+
+        SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(1000, 1000);
+        rst.setTimeoutEvent(new UpdateTimeout(rst));
+        trigger(rst, timerport);
+
     }
+
+    Handler<UpdateTimeout> updateTimeoutHandler = new Handler<UpdateTimeout>() {
+
+        @Override
+        public void handle(UpdateTimeout event) {
+            logger.info(" Number of Completed Requests So Far ..... " + requestIdList.size());
+        }
+
+    };
 
     /**
      * Inform the utilization manager about the requests to be scheduled.
@@ -55,7 +74,7 @@ public class UtilizationManager extends ComponentDefinition {
             numberOfJobsScheduled = event.getRequestsToBeScheduled();
         }
     };
-    
+
     /**
      * Start with the counting the time as started with the request scheduling.
      */
@@ -68,27 +87,27 @@ public class UtilizationManager extends ComponentDefinition {
     };
 
     /**
-     * Handler for the events received from the scheduler regarding the individual task completion.
+     * Handler for the events received from the scheduler regarding the
+     * individual task completion.
      */
     Handler<RequestCompletion> requestCompletionHandler = new Handler<RequestCompletion>() {
         @Override
         public void handle(RequestCompletion event) {
-            
+
             requestIdList.add(event.getId());
-            
             if (requestIdList.size() == numberOfJobsScheduled) {
+                
                 finishTime = System.currentTimeMillis();
                 computeTime();
             }
-            else{
-                logger.info("Jobs Completed: " + requestIdList.size());
-            }
+            
+            logger.info("Jobs Completed: " + requestIdList.size());
         }
     };
 
-    
     /**
-     * Compute the total time for now and send the message to the Data Center Simulator. 
+     * Compute the total time for now and send the message to the Data Center
+     * Simulator.
      */
     private void computeTime() {
         long totalTime = finishTime - startTime;

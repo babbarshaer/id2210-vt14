@@ -17,7 +17,7 @@ public final class RmInit extends Init {
         this.peerSelf = peerSelf;
         this.configuration = configuration;
         this.availableResources = availableResources;
-
+        
     }
 
     public AvailableResources getAvailableResources() {

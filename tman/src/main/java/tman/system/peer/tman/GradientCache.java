@@ -75,7 +75,7 @@ public class GradientCache {
             return null;
         }
         ViewEntry oldestEntry = Collections.max(entries, comparatorByAge);
-        removeEntry(oldestEntry);
+//        removeEntry(oldestEntry);
         return oldestEntry.getDescriptor().getAddress();
     }
 
@@ -124,14 +124,6 @@ public class GradientCache {
      */
     public void selectToKeep(ArrayList<PeerDescriptor> descriptors) {
 
-//        LinkedList<ViewEntry> entriesSentToThisPeer = new LinkedList<ViewEntry>();
-        // List of entries already sent to the neighbor for exchange.
-//        for (ViewEntry cacheEntry : entries) {
-//            if (cacheEntry.wasSentTo(from)) {
-//                entriesSentToThisPeer.add(cacheEntry);
-//            }
-//        }
-
         for (PeerDescriptor descriptor : descriptors) {
             if (self.equals(descriptor.getAddress())) {
                 // do not keep descriptor of self
@@ -169,6 +161,7 @@ public class GradientCache {
      * Bring size of the view back to the constant value.
      */
     private void removeExcessEntries() {
+       
         if (entries.size() <=  size) {
             return;
         }
@@ -177,11 +170,6 @@ public class GradientCache {
         while(listSize > size){
             removeEntry(entries.get(listSize-1));
             listSize -=1;
-        }
-        
-        if(entries.size() > size){
-            System.out.println("Flaw in the logic .... ");
-            System.exit(1);
         }
     }
 

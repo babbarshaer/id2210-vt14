@@ -1,6 +1,7 @@
 package resourcemanager.system.peer.rm;
 
 import java.util.List;
+import java.util.UUID;
 import se.sics.kompics.address.Address;
 import se.sics.kompics.network.Message;
 import se.sics.kompics.timer.ScheduleTimeout;
@@ -18,15 +19,17 @@ public class RequestResources  {
         private final int amountMemInMb;
         private final int timeToHoldResource;
         private final List<Address> peerList;
+        private final UUID resourceRequestUUID;
         
         
-        public Request(Address source, Address destination, int numCpus, int amountMemInMb, long requestId , int timeToHoldResource , List<Address> peerList) {
+        public Request(Address source, Address destination, int numCpus, int amountMemInMb, long requestId , int timeToHoldResource , List<Address> peerList , UUID resourceRequestUUID) {
             super(source, destination);
             this.numCpus = numCpus;
             this.amountMemInMb = amountMemInMb;
             this.requestId = requestId;
             this.timeToHoldResource = timeToHoldResource;
             this.peerList = peerList;
+            this.resourceRequestUUID  = resourceRequestUUID;
         }
 
         public int getAmountMemInMb() {
@@ -55,6 +58,11 @@ public class RequestResources  {
         public List<Address> getPeers(){
             return this.peerList;
         }
+        
+        public UUID getResourceRequestUUID(){
+            return this.resourceRequestUUID;
+        }
+        
         
     }
     

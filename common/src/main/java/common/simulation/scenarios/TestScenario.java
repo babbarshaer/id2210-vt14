@@ -138,7 +138,7 @@ public class TestScenario extends Scenario{
             SimulationScenario.StochasticProcess bootstrapUtilizationManager = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(1, Operations.bootstrapUtilizationHandler,constant(2600));
+                    raise(1, Operations.bootstrapUtilizationHandler,constant(2));
                 }
             };
             
@@ -153,15 +153,17 @@ public class TestScenario extends Scenario{
             
             //Simple Overlay adjustment Test.
             peerAdd0.start();
-//            peerAdd1.startAfterTerminationOf(2000,peerAdd0);
+            peerAdd1.startAfterTerminationOf(2000,peerAdd0);
+            bootstrapUtilizationManager.startAtSameTimeWith(peerAdd0);
 //            bootstrapUtilizationManager.startAfterTerminationOf(100, peerAdd1);
 //            process1.startAfterTerminationOf( 1000 , peerAdd1);
 //            resourceRequestInitiation.startAtSameTimeWith(process1);
 //            process2.startAtSameTimeWith(process1);
 //            process3.startAfterTerminationOf(1000, peerAdd1);
 //            peerAdd2.startAfterTerminationOf( 8000, peerAdd1);
-           testProcess1.startAfterTerminationOf(100, peerAdd0);
-           testProcess2.startAfterTerminationOf(100, peerAdd0);
+           testProcess1.startAfterTerminationOf(100, peerAdd1);
+           
+           testProcess2.startAfterTerminationOf(100, peerAdd1);
             
             //requestSchedulingCompletionProcess.startAtSameTimeWith(process1);
 //            process2.startAfterTerminationOf(3000, process0);

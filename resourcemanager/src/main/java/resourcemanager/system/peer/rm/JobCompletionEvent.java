@@ -6,6 +6,7 @@
 
 package resourcemanager.system.peer.rm;
 
+import java.util.UUID;
 import se.sics.kompics.address.Address;
 import se.sics.kompics.network.Message;
 
@@ -17,10 +18,12 @@ public class JobCompletionEvent extends Message{
     
     private static final long serialVersionUID = 1L;
     private final long requestId;
+    private final UUID resourceRequestUUID;
     
-    public JobCompletionEvent(Address source, Address destination, long requestId){
+    public JobCompletionEvent(Address source, Address destination, long requestId, UUID resourceRequestUUID){
         super(source, destination);
         this.requestId = requestId;
+        this.resourceRequestUUID = resourceRequestUUID;
     }
     
    /**
@@ -28,5 +31,13 @@ public class JobCompletionEvent extends Message{
     */
     public long getRequestId(){
         return this.requestId;
+    }
+    
+    /**
+     * Get Resource Request UUID.
+     * @return UUID
+     */
+    public UUID getResourceRequestUUID(){
+        return this.resourceRequestUUID;
     }
 }

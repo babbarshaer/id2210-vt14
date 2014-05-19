@@ -6,6 +6,7 @@
 package resourcemanager.system.peer.rm;
 
 import common.simulation.RequestResource;
+import java.util.UUID;
 import se.sics.kompics.address.Address;
 import se.sics.kompics.network.Message;
 
@@ -21,19 +22,22 @@ public class RescheduleJob extends Message {
     private int TTL;
     private ResourceEnum dominantResource;
     private int dominantResourceRetries;
+    private final UUID resourceRequestUUID;
 
-    public RescheduleJob(Address source,  Address destination,  RequestResource resourceRequest) {
+    public RescheduleJob(Address source,  Address destination,  RequestResource resourceRequest, UUID resourceRequestUUID) {
         super(source,destination);
         this.resourceRequest = resourceRequest;
-        this.TTL = 4;
+        this.TTL = 3;
         this.dominantResourceRetries = 2;
+        this.resourceRequestUUID = resourceRequestUUID;
     }
     
     // Specified TTL 
-     public RescheduleJob(Address source,  Address destination,  RequestResource resourceRequest , int TTL) {
+     public RescheduleJob(Address source,  Address destination,  RequestResource resourceRequest , int TTL , UUID resourceRequestUUID) {
         super(source,destination);
         this.resourceRequest = resourceRequest;
         this.TTL = TTL;
+        this.resourceRequestUUID  = resourceRequestUUID;
     }
 
     public RequestResource getResourceRequest() {
@@ -56,6 +60,10 @@ public class RescheduleJob extends Message {
     
     public int getDominantResourceRetries(){
         return this.dominantResourceRetries;
+    }
+    
+    public UUID getResourceRequestUUID(){
+        return this.resourceRequestUUID;
     }
 
     @Override

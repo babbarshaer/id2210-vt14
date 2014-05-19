@@ -1,22 +1,17 @@
 package resourcemanager.system.peer.rm;
 
-import com.sun.jndi.dns.ResourceRecord;
 import common.configuration.RmConfiguration;
 import common.peer.AvailableResources;
 import common.simulation.RequestResource;
-import common.simulation.ResourceRequestInitiation;
 import cyclon.system.peer.cyclon.CyclonSample;
 import cyclon.system.peer.cyclon.CyclonSamplePort;
 import cyclon.system.peer.cyclon.PeerDescriptor;
-import java.rmi.activation.ActivationGroup;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,14 +21,13 @@ import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.kompics.address.Address;
 import se.sics.kompics.network.Network;
+import se.sics.kompics.timer.CancelTimeout;
 import se.sics.kompics.timer.SchedulePeriodicTimeout;
 import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timer;
 import se.sics.kompics.web.Web;
 import simulator.snapshot.UtilizationPort;
-import sun.swing.SwingUtilities2;
 import system.peer.RmPort;
-import tman.system.peer.tman.ComparatorById;
 import tman.system.peer.tman.GradientEnum;
 import tman.system.peer.tman.TManSample;
 import tman.system.peer.tman.TManSamplePort;
@@ -57,8 +51,8 @@ public final class ResourceManager extends ComponentDefinition {
 
     ArrayList<Address> randomNeighbours = new ArrayList<Address>();
     ArrayList<PeerDescriptor> randomNeighborsDescriptors = new ArrayList<PeerDescriptor>();
-   
-    boolean useGradient = true;
+
+    boolean useGradient = false;
     static final double TEMPERATURE = 0.68;
 
     Positive<UtilizationPort> utilizationPort = requires(UtilizationPort.class);
@@ -73,7 +67,8 @@ public final class ResourceManager extends ComponentDefinition {
     Random random;
     private AvailableResources availableResources;
     private List<RequestResource> bufferedRequestsAtScheduler;
-    private List<RescheduleJob> rescheduledTaskList;
+    long requestTimeout;
+    private List<UUID> outstandingRequestsUUID;
 
     Comparator<PeerDescriptor> peerAgeComparator = new Comparator<PeerDescriptor>() {
         @Override
@@ -106,6 +101,7 @@ public final class ResourceManager extends ComponentDefinition {
         subscribe(requestCompletionEvent, networkPort);
         subscribe(jobCancellationHandler, networkPort);
         subscribe(removeRescheduleHandler, networkPort);
+        subscribe(resourceRequestTimeout, timerPort);
     }
 
     Handler<RmInit> handleInit = new Handler<RmInit>() {
@@ -119,7 +115,8 @@ public final class ResourceManager extends ComponentDefinition {
             schedulerJobList = new LinkedList<ApplicationJobDetail>();
             workerJobList = new LinkedList<WorkerJobDetail>();
             bufferedRequestsAtScheduler = new ArrayList<RequestResource>();
-            rescheduledTaskList = new ArrayList<RescheduleJob>();
+            requestTimeout = configuration.getRequestTimeout();
+            outstandingRequestsUUID = new ArrayList<UUID>();
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(period, period);
             rst.setTimeoutEvent(new UpdateTimeout(rst));
             trigger(rst, timerPort);
@@ -131,10 +128,7 @@ public final class ResourceManager extends ComponentDefinition {
     Handler<UpdateTimeout> handleUpdateTimeout = new Handler<UpdateTimeout>() {
         @Override
         public void handle(UpdateTimeout event) {
-                
-            // Do nothing, just allocate the available resources.
-//            availableResources.allocate(1,1000);
-            
+
         }
     };
 
@@ -146,8 +140,6 @@ public final class ResourceManager extends ComponentDefinition {
         @Override
         public void handle(CyclonSample event) {
 
-//            logger.info("Received Cyclon Samples: " + event.getSample().size());
-            // receive a new list of neighbours
             randomNeighbours.clear();
             randomNeighbours.addAll(event.getSample());
 
@@ -159,32 +151,16 @@ public final class ResourceManager extends ComponentDefinition {
     };
 
     /**
-     * Requesting the scheduler to schedule the job.
+     * Requesting the scheduler to schedule the task.
      */
     Handler<RequestResource> handleRequestResource = new Handler<RequestResource>() {
 
         @Override
         public void handle(RequestResource event) {
 
-//            logger.info("Allocate resources Received By : " + self + ":  cpu: " + event.getNumCpus() + " + memory: " + event.getMemoryInMbs() + " + id: " + event.getId());
-            if (useGradient) {
-
-                // Based on the request, check the dominant one.
-                ArrayList<PeerDescriptor> neighborsInfo = getGradientNeighborsBasedOnRequest(event);
-                if (neighborsInfo.isEmpty() || !checkAndScheduleTheApplicationJobOnGradient(event, neighborsInfo)) {
-                    bufferedRequestsAtScheduler.add(event);
-                }
-
-            } else {
-                // Buffer the request in case we donot find the neighbors to talk to or not able to select neighbors to send the request to.
-                ArrayList<PeerDescriptor> descriptors = getRandomNeighborsDescriptors();
-                if (descriptors.isEmpty() || !checkAndScheduleTheApplicationJob(event, descriptors)) {
-//                    logger.info("Buffering the request .... " + event.getId());
-                    bufferedRequestsAtScheduler.add(event);
-                }
-            }
+            // Initiate the initial scheduling of the task received at the node.
+            initiateTaskScheduling(event);
         }
-
     };
 
     /**
@@ -209,7 +185,7 @@ public final class ResourceManager extends ComponentDefinition {
         public void handle(RequestResources.Request event) {
 
             // Step1: Create an instance of job detail as submitted by the peer.
-            WorkerJobDetail peerJobDetail = new WorkerJobDetail(event.getNumCpus(), event.getAmountMemInMb(), event.getRequestId(), event.getTimeToHoldResource(), event.getSource(), event.getPeers());
+            WorkerJobDetail peerJobDetail = new WorkerJobDetail(event.getNumCpus(), event.getAmountMemInMb(), event.getRequestId(), event.getTimeToHoldResource(), event.getSource(), event.getPeers(), event.getResourceRequestUUID());
             workerJobList.add(peerJobDetail);
 
             //Step2: Check for free resources and then allocate them.
@@ -249,38 +225,20 @@ public final class ResourceManager extends ComponentDefinition {
         List<Address> randomNeighboursSelected = new ArrayList<Address>();
         List<Integer> randomIndexArray = getRandomIndexArray(neighbors.size());
 
-        // Check if the neighbors to be probed can fulfill the request or not.
-        int entries = 0;
-        for (Integer i : randomIndexArray) {
-            if (entries == neighborCorrectnessCriteria) {
-                break;
-            }
-
-            PeerDescriptor peerDescriptor = randomNeighborsDescriptors.get(i);
-            if (peerDescriptor.getFreeCpu() >= event.getNumCpus() && peerDescriptor.getFreeMemory() >= event.getMemoryInMbs()) {
-                entries += 1;
-            }
-
-        }
-        // Cannot schedule the job as no suitable scheuler found.
-        if (entries < neighborCorrectnessCriteria) {
-            return false;
-        }
-
-        // else schedule the job.
+        //  Simply randomly schedule the job, and handle the inefficient placement in the timeout.
+        //  Need to measure increasing timeout in the system.
         for (Integer i : randomIndexArray) {
             randomNeighboursSelected.add(neighbors.get(i).getAddress());
         }
 
+        //Schedule the job, if everything looks good.
+        UUID resourceRequestUUID = addTaskToSchedulerList(event);
+
         for (Address dest : randomNeighboursSelected) {
-            RequestResources.Request req = new RequestResources.Request(self, dest, event.getNumCpus(), event.getMemoryInMbs(), event.getId(), event.getTimeToHoldResource(), randomNeighboursSelected);
+            RequestResources.Request req = new RequestResources.Request(self, dest, event.getNumCpus(), event.getMemoryInMbs(), event.getId(), event.getTimeToHoldResource(), randomNeighboursSelected, resourceRequestUUID);
             trigger(req, networkPort);
         }
 
-        //Schedule the job, if everything looks good.
-        ApplicationJobDetail applicationJobDetail = new ApplicationJobDetail(event);
-        schedulerJobList.add(applicationJobDetail);
-//        logger.info("Job Received From Application: " + applicationJobDetail.toString());
         return true;
     }
 
@@ -291,65 +249,26 @@ public final class ResourceManager extends ComponentDefinition {
      */
     private boolean checkAndScheduleTheApplicationJobOnGradient(RequestResource event, List<PeerDescriptor> partnersDescriptor) {
 
-        List<Address> randomNeighboursSelected;
-        List<Integer> randomIndexArray = getRandomIndexArray(partnersDescriptor.size());
-
-        // Check if the available resources have required free resources.
-        int entriesFound = 0;
-        for (Integer i : randomIndexArray) {
-
-            if (entriesFound == neighborCorrectnessCriteria) {
-                break;
-            }
-
-            PeerDescriptor currentPeerDescriptor = partnersDescriptor.get(i);
-            if (currentPeerDescriptor.getFreeCpu() >= event.getNumCpus() && currentPeerDescriptor.getFreeMemory() >= event.getMemoryInMbs()) {
-                entriesFound += 1;
-            }
+        // Simply start with the start of the random walk.
+        PeerDescriptor descriptor = getNeighborForRescheduling(event, partnersDescriptor);
+        if (descriptor == null) {
+            logger.info("~~ Not able to find the neighbor to reschedule the job ~~");
+            return false;
         }
 
-        // Not good entries, start with the gradient ascent search.
-        if (entriesFound < neighborCorrectnessCriteria) {
+        // Reschedule The Job.
+        UUID resourceRequestUUID = addTaskToSchedulerList(event);
+        RescheduleJob rescheduledJob = new RescheduleJob(self, descriptor.getAddress(), event, resourceRequestUUID);
+        trigger(rescheduledJob, networkPort);
 
-            // TODO: Change Made to improve the existing gradient approach.
-            PeerDescriptor descriptor = getNeighborForRescheduling(event, partnersDescriptor);
-            if (descriptor == null) {
-                logger.info("~~ Not able to find the neighbor to reschedule the job ~~");
-                return false;
-            }
-
-//            logger.info("Start the process of Rescheduling at :" + self + " ~~To: " + descriptor.getAddress());
-            RescheduleJob rescheduledJob = new RescheduleJob(self, descriptor.getAddress(), event);
-            trigger(rescheduledJob, networkPort);
-           
-            // For now add then to the schedulerJobList.
-            // TODO: Correct them
-            ApplicationJobDetail applicationJobDetail = new ApplicationJobDetail(event);
-            schedulerJobList.add(applicationJobDetail);
-            
-            return true;
-        }
-
-        randomNeighboursSelected = new ArrayList<Address>();
-
-        for (Integer i : randomIndexArray) {
-            randomNeighboursSelected.add(partnersDescriptor.get(i).getAddress());
-        }
-
-        for (Address dest : randomNeighboursSelected) {
-            RequestResources.Request req = new RequestResources.Request(self, dest, event.getNumCpus(), event.getMemoryInMbs(), event.getId(), event.getTimeToHoldResource(), randomNeighboursSelected);
-            trigger(req, networkPort);
-        }
-
-        ApplicationJobDetail applicationJobDetail = new ApplicationJobDetail(event);
-        schedulerJobList.add(applicationJobDetail);
-//        logger.info("Job Received From Application: " + applicationJobDetail.toString());
         return true;
     }
-    
+
     /**
-     *
-     * Rescheduling using Intelligent Gradient Approach.
+     * TODO: Modify it to work intelligently with power of 4 by adding the basic
+     * approach and then studying the benefits. Keep rescheduling simple by only
+     * traversing up the tree and then finding the good node in the system
+     * hopefully.
      */
     Handler<RescheduleJob> rescheduleJobHandler = new Handler<RescheduleJob>() {
 
@@ -361,8 +280,7 @@ public final class ResourceManager extends ComponentDefinition {
             // STEP1: Check if current node has available resources to satisfy the request.
             if (availableResources.allocate(event.getNumCpus(), event.getMemoryInMbs())) {
 
-                //logger.info("Found the Available Resources to Execute .... ")
-                WorkerJobDetail workerJobDetail = new WorkerJobDetail(event.getNumCpus(), event.getMemoryInMbs(), event.getId(), event.getTimeToHoldResource(), rescheduleJobEvent.getSource(), new ArrayList<Address>());
+                WorkerJobDetail workerJobDetail = new WorkerJobDetail(event.getNumCpus(), event.getMemoryInMbs(), event.getId(), event.getTimeToHoldResource(), rescheduleJobEvent.getSource(), new ArrayList<Address>(), rescheduleJobEvent.getResourceRequestUUID());
                 workerJobList.add(workerJobDetail);
                 workerJobDetail.setJobStatus(JobStatusEnum.PROCESSING);
                 executeJob(workerJobDetail);
@@ -377,243 +295,140 @@ public final class ResourceManager extends ComponentDefinition {
                 // No samples returned by the TMan yet, so buffering the request.
 //                logger.info("Buffering the re-scheduled request .... " + event.getId());
                 bufferedRequestsAtScheduler.add(event);
-                 RemoveRescheduleJob removeRescheduleJobEvent = new RemoveRescheduleJob(self, rescheduleJobEvent.getSource(), event);
-                 trigger(removeRescheduleJobEvent,networkPort);
+                RemoveRescheduleJob removeRescheduleJobEvent = new RemoveRescheduleJob(self, rescheduleJobEvent.getSource(), event, rescheduleJobEvent.getResourceRequestUUID());
+                trigger(removeRescheduleJobEvent, networkPort);
                 return;
             }
 
-            List<Address> randomNeighboursSelected;
-            List<Integer> randomIndexArray = getRandomIndexArray(currentNeighborsInfo.size());
+            if (rescheduleJobEvent.getTTL() == 0) {
 
-            // Check if the available resources have required free resources.
-            int entriesFound = 0;
-            for (Integer i : randomIndexArray) {
-
-                if (entriesFound == neighborCorrectnessCriteria) {
-                    break;
-                }
-                
-                // Check if any neighbor can satisfy the request criteria.
-                PeerDescriptor currentPeerDescriptor = currentNeighborsInfo.get(i);
-                if (currentPeerDescriptor.getFreeCpu() >= event.getNumCpus() && currentPeerDescriptor.getFreeMemory() >= event.getMemoryInMbs()) {
-                    entriesFound += 1;
-                }
-            }
-
-            // STEP3:  If neighbours are not found that can satisfy the request, then we move on to Re-Scheduling.
-            if (entriesFound < neighborCorrectnessCriteria) {
-                
-                if(rescheduleJobEvent.getTTL() ==0){
-                    
-                    // Trigger a cancellation event to the original scheduler, to remove the request from the scheduler list.
-                    bufferedRequestsAtScheduler.add(event);
-                    RemoveRescheduleJob removeRescheduleJobEvent = new RemoveRescheduleJob(self, rescheduleJobEvent.getSource(), event);
-                    trigger(removeRescheduleJobEvent,networkPort);
-                    return;
-                }
-                
-                // Get the gradient neighbors suitable for scheduling, that are closer to this node.
-                PeerDescriptor descriptor =  getNeighborForRescheduling(event,currentNeighborsInfo);
-                if (descriptor != null) {
-                    // Further reschedule the request in the network, with the original source as it is random walk.
-                    RescheduleJob job = new RescheduleJob(rescheduleJobEvent.getSource(), descriptor.getAddress(), event, rescheduleJobEvent.getTTL());
-                    job.reduceTTL();
-                    trigger(job, networkPort);
-                } else {
-//                    logger.info("ABORT ABORT ABORT ,.................. ");
-                    bufferedRequestsAtScheduler.add(event);
-                    RemoveRescheduleJob removeRescheduleJobEvent = new RemoveRescheduleJob(self, rescheduleJobEvent.getSource(), event);
-                    trigger(removeRescheduleJobEvent,networkPort);
-                }
+                // Trigger a cancellation event to the original scheduler, to remove the request from the scheduler list.
+                bufferedRequestsAtScheduler.add(event);
+                RemoveRescheduleJob removeRescheduleJobEvent = new RemoveRescheduleJob(self, rescheduleJobEvent.getSource(), event, rescheduleJobEvent.getResourceRequestUUID());
+                trigger(removeRescheduleJobEvent, networkPort);
                 return;
             }
 
-            // STEP 3: Schedule the request in case peers with the required resources are found.
-//            logger.info(" ~~ ... RESCHEDULING SHOULD STOP BECAUSE FOUND THE NEIGHBOR ... ~~ ");
-            randomNeighboursSelected = new ArrayList<Address>();
-            for (Integer i : randomIndexArray) {
-                randomNeighboursSelected.add(currentNeighborsInfo.get(i).getAddress());
-            }
+            // Get the gradient neighbors suitable for scheduling, that are closer to this node.
+            PeerDescriptor descriptor = getNeighborForRescheduling(event, currentNeighborsInfo);
+            if (descriptor != null) {
 
-            for (Address dest : randomNeighboursSelected) {
-                RequestResources.Request req = new RequestResources.Request(rescheduleJobEvent.getSource() , dest, event.getNumCpus(), event.getMemoryInMbs(), event.getId(), event.getTimeToHoldResource(), randomNeighboursSelected);
-                trigger(req, networkPort);
+                // Further reschedule the request in the network, with the original source as it is random walk.
+                RescheduleJob job = new RescheduleJob(rescheduleJobEvent.getSource(), descriptor.getAddress(), event, rescheduleJobEvent.getTTL(), rescheduleJobEvent.getResourceRequestUUID());
+                job.reduceTTL();
+                trigger(job, networkPort);
+            } else {
+                // Buffer the request for now and start normal scheduling when neighbors received.
+                bufferedRequestsAtScheduler.add(event);
+                RemoveRescheduleJob removeRescheduleJobEvent = new RemoveRescheduleJob(self, rescheduleJobEvent.getSource(), event, rescheduleJobEvent.getResourceRequestUUID());
+                trigger(removeRescheduleJobEvent, networkPort);
             }
-
-//            ApplicationJobDetail applicationJobDetail = new ApplicationJobDetail(event);
-//            schedulerJobList.add(applicationJobDetail);
-//            logger.info("Job Received From Application added to the scheduler list :  " + applicationJobDetail.toString());
-            
         }
     };
-    
-    
-    
+
+    /**
+     * TODO: Create the Cancel Timeout Task and modify the requests. Perform the
+     * tasks required when found neighbor for scheduling and provide the UUID of
+     * the request.
+     *
+     * @param detail
+     */
+    private UUID addTaskToSchedulerList(RequestResource event) {
+
+        // Add to the scheduler list.
+        ApplicationJobDetail applicationJobDetail = new ApplicationJobDetail(event);
+        schedulerJobList.add(applicationJobDetail);
+
+        // Create a timeout event to check the progress of the task.
+        ScheduleTimeout st = new ScheduleTimeout(requestTimeout);
+        ResourceRequestTimeout timeout = new ResourceRequestTimeout(st, event);
+        st.setTimeoutEvent(timeout);
+        // Add this UUID to the list of outstanding requests.
+        UUID rTimeoutId = st.getTimeoutEvent().getTimeoutId();
+        outstandingRequestsUUID.add(rTimeoutId);
+
+        // Trigger the timeout if everything looks good.
+        trigger(st, timerPort);
+        return rTimeoutId;
+    }
+
+    /**
+     * Handler for the resource request timeout.
+     */
+    Handler<ResourceRequestTimeout> resourceRequestTimeout = new Handler<ResourceRequestTimeout>() {
+
+        @Override
+        public void handle(ResourceRequestTimeout timeoutEvent) {
+
+            RequestResource event = timeoutEvent.getResourceRequest();
+            UUID resourceRequestUUID = timeoutEvent.getTimeoutId();
+            cleanUpTheTaskAtScheduler(event.getId(), resourceRequestUUID);
+
+            // Again schedule the task, based on random or on being gradient.
+            initiateTaskScheduling(event);
+        }
+
+    };
+
+    /**
+     * Initiate the scheduling of the task received at the node.
+     *
+     * @param event
+     */
+    public void initiateTaskScheduling(RequestResource event) {
+
+        if (useGradient) {
+
+            // Based on the request, check the dominant one.
+            ArrayList<PeerDescriptor> neighborsInfo = getGradientNeighborsBasedOnRequest(event);
+            if (neighborsInfo.isEmpty() || !checkAndScheduleTheApplicationJobOnGradient(event, neighborsInfo)) {
+                bufferedRequestsAtScheduler.add(event);
+            }
+
+        } else {
+
+            // Buffer the request in case we donot find the neighbors to talk to or not able to select neighbors to send the request to.
+            ArrayList<PeerDescriptor> descriptors = getRandomNeighborsDescriptors();
+            if (descriptors.isEmpty() || !checkAndScheduleTheApplicationJob(event, descriptors)) {
+                bufferedRequestsAtScheduler.add(event);
+            }
+        }
+    }
+
     /**
      * In case the job gets added in the buffer list of another node.
      */
-    Handler<RemoveRescheduleJob> removeRescheduleHandler = new Handler<RemoveRescheduleJob>(){
-        
+    Handler<RemoveRescheduleJob> removeRescheduleHandler = new Handler<RemoveRescheduleJob>() {
+
         @Override
         public void handle(RemoveRescheduleJob event) {
-            
-            // Simply remove the task from the scheduled tasks in the system.
-            ApplicationJobDetail jobDetail = new ApplicationJobDetail(event.getRequestEvent().getId());
-            
-            // Simply remove the scheduled job as it now handled by other node.
-            if (schedulerJobList.contains(jobDetail)) {
-                schedulerJobList.remove(jobDetail);
-            }
-        } 
-    };
-
-    /**
-     *
-     * Rescheduling using Intelligent Gradient Approach.
-     */
-    Handler<RescheduleJob> rescheduleJobHandlerUpdated = new Handler<RescheduleJob>() {
-
-        @Override
-        public void handle(RescheduleJob rescheduleJobEvent) {
-
-            RequestResource event = rescheduleJobEvent.getResourceRequest();
-
-            // STEP1: Check if current node has available resources to satisfy the request.
-            // This code creating problems .... 
-//            if (availableResources.allocate(event.getNumCpus(), event.getMemoryInMbs())) {
-//
-//                //logger.info("Found the Available Resources to Execute .... ");
-//                // Not sure if this is a good mechanism to execute the job on the rescheduled node or not, as the reliability factor reduces because of single node executing the job.
-//                WorkerJobDetail workerJobDetail = new WorkerJobDetail(event.getNumCpus(), event.getMemoryInMbs(), event.getId(), event.getTimeToHoldResource(), rescheduleJobEvent.getSource(), new ArrayList<Address>());
-//                workerJobList.add(workerJobDetail);
-//                workerJobDetail.setJobStatus(JobStatusEnum.PROCESSING);
-//                executeJob(workerJobDetail);
-//                return;
-//            }
-
-            // STEP2: The current node doesn't have the required resources, check if any neighbors have the correspongding required resources.
-//            logger.info("Reschedule Job Requiring  cpu: " + event.getNumCpus() + " + memory: " + event.getMemoryInMbs() + " + id: " + event.getId());
-            ArrayList<PeerDescriptor> currentNeighborsInfo = getGradientNeighborsBasedOnRequest(event);
-            if (currentNeighborsInfo.isEmpty()) {
-
-                // No samples returned by the TMan yet, so buffering the request.
-//                logger.info("Buffering the re-scheduled request .... " + event.getId());
-                bufferedRequestsAtScheduler.add(event);
-                return;
-            }
-
-            List<Address> randomNeighboursSelected;
-            List<Integer> randomIndexArray = getRandomIndexArray(currentNeighborsInfo.size());
-
-            // Check if the available resources have required free resources.
-            int entriesFound = 0;
-            for (Integer i : randomIndexArray) {
-
-                if (entriesFound == neighborCorrectnessCriteria) {
-                    break;
-                }
-
-                // Check if any neighbor can satisfy the request criteria.
-                PeerDescriptor currentPeerDescriptor = currentNeighborsInfo.get(i);
-                if (currentPeerDescriptor.getFreeCpu() >= event.getNumCpus() && currentPeerDescriptor.getFreeMemory() >= event.getMemoryInMbs()) {
-                    entriesFound += 1;
-                }
-            }
-
-            // STEP3:  If neighbours are not found that can satisfy the request, then we move on to Re-Scheduling.
-            if (entriesFound < neighborCorrectnessCriteria) {
-
-                PeerDescriptor descriptor = getNeighborForReschedulingOld(event, rescheduleJobEvent);
-                if (descriptor != null) {
-                    // Further reschedule the request in the network.
-                    
-//                    logger.info("Rescheduling , Rescheduling ...... ");
-                    RescheduleJob job = new RescheduleJob(self, descriptor.getAddress(), event, rescheduleJobEvent.getTTL());
-                    job.reduceTTL();
-                    trigger(job, networkPort);
-                } else {
-//                    logger.info("ABORT ABORT ABORT ,.................. ");
-                    bufferedRequestsAtScheduler.add(event);
-                }
-                return;
-            }
-
-            // STEP 3: Schedule the request in case peers with the required resources are found.
-//            logger.info(" ~~ ... RESCHEDULING SHOULD STOP BECAUSE FOUND THE NEIGHBOR ... ~~ ");
-            randomNeighboursSelected = new ArrayList<Address>();
-            for (Integer i : randomIndexArray) {
-                randomNeighboursSelected.add(currentNeighborsInfo.get(i).getAddress());
-            }
-
-            for (Address dest : randomNeighboursSelected) {
-                RequestResources.Request req = new RequestResources.Request(self, dest, event.getNumCpus(), event.getMemoryInMbs(), event.getId(), event.getTimeToHoldResource(), randomNeighboursSelected);
-                trigger(req, networkPort);
-            }
-
-            ApplicationJobDetail applicationJobDetail = new ApplicationJobDetail(event);
-            schedulerJobList.add(applicationJobDetail);
-//            logger.info("Job Received From Application added to the scheduler list :  " + applicationJobDetail.toString());
+            cleanUpTheTaskAtScheduler(event.getRequestEvent().getId(), event.getResourceRequestUUID());
         }
     };
 
     /**
-     * Simply check if the job can be rescheduled on a Better Node.
+     * Simply clean up the completed task from the list of scheduled task list.
      *
-     * @param event
-     * @return
+     * @param requestId
+     * @param resourceRequestUUID
      */
-    private PeerDescriptor getNeighborForReschedulingOld(RequestResource event, RescheduleJob rescheduleJobEvent) {
+    private boolean cleanUpTheTaskAtScheduler(long requestId, UUID resourceRequestUUID) {
 
-        if (rescheduleJobEvent.getTTL() == 0) {
-            return null;
+        ApplicationJobDetail jobDetail = new ApplicationJobDetail(requestId);
+
+        if (schedulerJobList.contains(jobDetail)) {
+
+            //Remove the task from the scheduled list.
+            schedulerJobList.remove(jobDetail);
+
+            // Send the cancellation event.
+            outstandingRequestsUUID.remove(resourceRequestUUID);
+            CancelTimeout cancelTimeout = new CancelTimeout(resourceRequestUUID);
+            trigger(cancelTimeout, timerPort);
+            return true;
         }
 
-        ArrayList<PeerDescriptor> currentNeighborsInfo = getGradientNeighborsBasedOnRequest(event);
-
-        // Now in case, we go for rescheduling, then we need to fetch the neighbor which has better utility in terms of dominant resource or atleast the same utility as the resource requested.
-        ResourceEnum dominantResource;
-        // Before Starting Check the Dominant Resource.
-        if (isDominant(event.getNumCpus(), (event.getMemoryInMbs() / 1000.0))) {
-            dominantResource = ResourceEnum.CPU;
-        } 
-        else {
-            dominantResource = ResourceEnum.MEMORY;
-        }
-
-        // Check for the node to  which the job is rescheduled for the utility of the dominant resource.
-        int retries = 0;
-        int maximumRetries = rescheduleJobEvent.getDominantResourceRetries();
-
-        PeerDescriptor descriptor = null;
-        while (retries < maximumRetries) {
-
-             //descriptor = getSoftMaxAddress(currentNeighborsInfo, 0.5);
-            // Modified approach to calculate the neighbor to talk to ... 
-            
-            descriptor = getNeighborForRescheduling(event,currentNeighborsInfo);
-            if (descriptor == null) {
-                logger.info(" ~~  Not able to find the neighbor to reschedule the job ~~ ");
-                return descriptor;
-            }
-
-            // Never send it to a node with a lower utility for the dominant resource.
-            if (dominantResource == ResourceEnum.CPU) {
-                if (descriptor.getFreeCpu() >= availableResources.getNumFreeCpus() || descriptor.getFreeCpu() >= event.getNumCpus()) {
-                    break;
-                }
-            } else if (dominantResource == ResourceEnum.MEMORY) {
-                if (descriptor.getFreeMemory() >= availableResources.getFreeMemInMbs() || descriptor.getFreeMemory() >= event.getMemoryInMbs()) {
-                    break;
-                }
-            }
-            retries += 1;
-        }
-
-        if (retries == maximumRetries) {
-            // Not able to find a better peer.
-            return null;
-        }
-        return descriptor;
+        return false;
     }
 
     /**
@@ -626,7 +441,7 @@ public final class ResourceManager extends ComponentDefinition {
             if (event.getSample().isEmpty()) {
                 // Code Flaw.
                 logger.info("~~~ Received Empty TMan Sample ~~~");
-                System.exit(1);
+//                System.exit(1);
                 return;
             }
 
@@ -638,9 +453,9 @@ public final class ResourceManager extends ComponentDefinition {
 
                 cpuGradientNeighborsDescriptors.clear();
                 cpuGradientNeighborsDescriptors.addAll(similarPartnersDescriptor);
-                
+
             } else if (event.getGradientEnum() == GradientEnum.MEMORY) {
-                
+
                 memoryGradientNeighborsDescriptors.clear();
                 memoryGradientNeighborsDescriptors.addAll(similarPartnersDescriptor);
             }
@@ -722,11 +537,12 @@ public final class ResourceManager extends ComponentDefinition {
 //            logger.info("Resources Released: " + "Cpu: " + jobDetail.getCpu() + " Memory: " + jobDetail.getMemory());
 
             //Step2: Remove the resource from the processed list as it has been completely processed.
-            if(workerJobList.contains(jobDetail))
+            if (workerJobList.contains(jobDetail)) {
                 workerJobList.remove(jobDetail);
+            }
 
             //Step3:Send the completion request to the scheduler about the completion of the request.
-            JobCompletionEvent requestCompletionEvent = new JobCompletionEvent(self, jobDetail.getSchedulerAddress(), jobDetail.getRequestId());
+            JobCompletionEvent requestCompletionEvent = new JobCompletionEvent(self, jobDetail.getSchedulerAddress(), jobDetail.getRequestId(), jobDetail.getResourceRequestUUID());
             trigger(requestCompletionEvent, networkPort);
 
             //Check the available resources again, to see which jobs can be configured.
@@ -741,19 +557,14 @@ public final class ResourceManager extends ComponentDefinition {
     Handler<JobCompletionEvent> requestCompletionEvent = new Handler<JobCompletionEvent>() {
         @Override
         public void handle(JobCompletionEvent event) {
-            // Simply remove the completed job.
-            ApplicationJobDetail jobDetail = new ApplicationJobDetail(event.getRequestId());
 
-            if (schedulerJobList.contains(jobDetail)) {
-                schedulerJobList.remove(jobDetail);
-//                logger.info("Job: " + event.getRequestId() + " completed.");
-
-                trigger(new RequestCompletion(jobDetail.getRequestId()), utilizationPort);
+            if (cleanUpTheTaskAtScheduler(event.getRequestId(), event.getResourceRequestUUID())) {
+                trigger(new RequestCompletion(event.getRequestId()), utilizationPort);
             }
         }
     };
 
-    // Execute the job successfully.
+// Execute the job successfully.
     private void executeJob(WorkerJobDetail jobDetail) {
         //Schedule a timeout for the resource.
         ScheduleTimeout st = new ScheduleTimeout(jobDetail.getTimeToHoldResource());
@@ -797,23 +608,23 @@ public final class ResourceManager extends ComponentDefinition {
         return randomIndexArray;
     }
 
-    
     /**
      * Simply return the top most neighbors.
+     *
      * @param size
-     * @return 
+     * @return
      */
-    public List<Integer> getNeighborsForGradient(int size){
-        
+    public List<Integer> getNeighborsForGradient(int size) {
+
         List<Integer> indexArray = new ArrayList<Integer>();
-        int i=0;
-        while(i<probeRatio){
+        int i = 0;
+        while (i < probeRatio) {
             indexArray.add(i);
-            i+=1;
+            i += 1;
         }
         return indexArray;
     }
-    
+
     /**
      * FIXME: Based on the resource just check which gradient to use. Check if
      * any buffered jobs can be scheduled..
@@ -822,34 +633,30 @@ public final class ResourceManager extends ComponentDefinition {
 
         ArrayList<PeerDescriptor> partnerDescriptors;
         ArrayList<RequestResource> eventsTobeRemoved = new ArrayList<RequestResource>();
-        
-//        if(!bufferedRequestsAtScheduler.isEmpty()){
-//            logger.info("Some job in the Buffer");
-//        }
 
         if (useGradient) {
 
             for (int i = 0; i < bufferedRequestsAtScheduler.size(); i++) {
 
                 partnerDescriptors = getGradientNeighborsBasedOnRequest(bufferedRequestsAtScheduler.get(i));
-                
-                if (!partnerDescriptors.isEmpty()) {        
+
+                if (!partnerDescriptors.isEmpty()) {
                     // schedule the request and then remove it from the buffered requests.
-                    if(checkAndScheduleTheApplicationJobOnGradient(bufferedRequestsAtScheduler.get(i), partnerDescriptors))
+                    if (checkAndScheduleTheApplicationJobOnGradient(bufferedRequestsAtScheduler.get(i), partnerDescriptors)) {
                         eventsTobeRemoved.add(bufferedRequestsAtScheduler.get(i));
+                    }
                 }
             }
-        } 
-
-        // Get neighbours from the random approach and schedule them.
+        } // Get neighbours from the random approach and schedule them.
         else {
-            
+
             partnerDescriptors = getRandomNeighborsDescriptors();
             if (!partnerDescriptors.isEmpty()) {
                 for (RequestResource requestResource : bufferedRequestsAtScheduler) {
-                    
-                    if (checkAndScheduleTheApplicationJob(requestResource, partnerDescriptors)) 
+
+                    if (checkAndScheduleTheApplicationJob(requestResource, partnerDescriptors)) {
                         eventsTobeRemoved.add(requestResource);
+                    }
                 }
             }
         }
@@ -862,7 +669,6 @@ public final class ResourceManager extends ComponentDefinition {
     /**
      * Fetch the best entry to forward the request in case of rescheduling.
      *
-     *  TODO: Flawed approach to fetch the neighbors based on the utility.
      * @param entries
      * @param temperature
      * @return
@@ -907,47 +713,46 @@ public final class ResourceManager extends ComponentDefinition {
     private boolean isDominant(double utility1, double utility2) {
         return (utility1 >= utility2);
     }
-    
-    
+
     /**
      * Based on the request fetch the peer to reschedule to the job.
+     *
      * @param entries
-     * @return 
+     * @return
      */
-    private  PeerDescriptor  getNeighborForRescheduling( RequestResource resourceRequest, List<PeerDescriptor> entries){
-        
+    private PeerDescriptor getNeighborForRescheduling(RequestResource resourceRequest, List<PeerDescriptor> entries) {
+
         int resourceToCompare;
-        ResourceEnum dominantResource =null;
+        ResourceEnum dominantResource = null;
         List<PeerDescriptor> favourableNeighbors = new ArrayList<PeerDescriptor>();
-        
-        dominantResource =  (isDominant(resourceRequest.getNumCpus(), resourceRequest.getMemoryInMbs())) ? (ResourceEnum.CPU) : ResourceEnum.MEMORY;
-       
-        if(dominantResource == ResourceEnum.CPU){
-            
+        dominantResource = (isDominant(resourceRequest.getNumCpus(), resourceRequest.getMemoryInMbs())) ? (ResourceEnum.CPU) : ResourceEnum.MEMORY;
+
+        if (dominantResource == ResourceEnum.CPU) {
+            // Change the criteria based on the requirement.
             resourceToCompare = availableResources.getNumFreeCpus();
-            for(PeerDescriptor peerDescriptor : entries){
+            for (PeerDescriptor peerDescriptor : entries) {
                 // Add the descriptors which have greater free resources for the dominant resource and the 
-                if(peerDescriptor.getFreeCpu() > resourceToCompare || peerDescriptor.getFreeCpu()  >=  resourceRequest.getNumCpus())
+                if (peerDescriptor.getFreeCpu() > resourceToCompare || peerDescriptor.getFreeCpu() >= resourceRequest.getNumCpus()) {
                     favourableNeighbors.add(peerDescriptor);
+                }
             }
-        }
-        
-        else {
-            
+        } else {
+
             resourceToCompare = availableResources.getFreeMemInMbs();
-            for(PeerDescriptor peerDescriptor : entries){
+            for (PeerDescriptor peerDescriptor : entries) {
                 // TODO: Change the > sign to >= sign .... 
-                if(peerDescriptor.getFreeMemory()> resourceToCompare || peerDescriptor.getFreeMemory()  >=  resourceRequest.getNumCpus())
+                if (peerDescriptor.getFreeMemory() > resourceToCompare || peerDescriptor.getFreeMemory() >= resourceRequest.getNumCpus()) {
                     favourableNeighbors.add(peerDescriptor);
+                }
             }
         }
-        
-        if(!favourableNeighbors.isEmpty()){
+
+        if (!favourableNeighbors.isEmpty()) {
             // Return the peer descriptor to re - schedule to.
             int index = random.nextInt(favourableNeighbors.size());
             return favourableNeighbors.get(index);
         }
-        
+
         return null;
     }
 }

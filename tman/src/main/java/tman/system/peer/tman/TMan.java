@@ -104,15 +104,16 @@ public final class TMan extends ComponentDefinition {
         public void handle(TManSchedule event) {
             
             Snapshot.updateTManPartners(self, getSimilarPeers());
-            Address randomPeer = gradientCache.getSoftMaxAddressForGradient();
-            
+            // Increment the age and remove the entry with oldest age to keep rotating.
+            gradientCache.incrementDescriptorAges();
+            Address randomPeer = gradientCache.selectPeerToShuffleWith();
             // Only if you find a peer to shuffle the view with you progress.
             if(randomPeer != null){    
+                
                 //Here you will initiate the shuffle with the neighbors for now.
                 initiateGradientShuffle(shuffleLength, randomPeer);
                 // Publish sample to connected components.
                 trigger(new TManSample(getSimilarPeers(),getSimilarPeersInfo(),gradientEnum), tmanPort);
-//                printNodeViewResourceInfo();
 //                printSelfInformation();
             }
         }
@@ -139,6 +140,8 @@ public final class TMan extends ComponentDefinition {
     Handler<CyclonSample> handleCyclonSample = new Handler<CyclonSample>() {
         @Override
         public void handle(CyclonSample event) {
+            
+            
             
             List<Address> randomCyclonPartners = event.getSample();
             ArrayList<PeerDescriptor>  partnerDescriptors =  (ArrayList<PeerDescriptor>)event.getPartnersDescriptor();

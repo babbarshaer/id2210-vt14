@@ -7,6 +7,7 @@
 package resourcemanager.system.peer.rm;
 
 import java.util.List;
+import java.util.UUID;
 import se.sics.kompics.address.Address;
 
 /**
@@ -22,9 +23,10 @@ public class WorkerJobDetail {
     private final Address schedulerAddress;
     private JobStatusEnum jobStatus;
     private final List<Address> workers;
+    private final UUID resourceRequestUUID;
     
     
-    public WorkerJobDetail(int cpu, int memory, long requestId, int timeToHoldResource, Address schedulerAddress , List<Address> workers){
+    public WorkerJobDetail(int cpu, int memory, long requestId, int timeToHoldResource, Address schedulerAddress , List<Address> workers, UUID resourceRequestUUID){
         this.cpu = cpu;
         this.memory = memory;
         this.requestId = requestId;
@@ -32,7 +34,7 @@ public class WorkerJobDetail {
         this.schedulerAddress = schedulerAddress;
         this.jobStatus = JobStatusEnum.QUEUED;
         this.workers = workers;
-        
+        this.resourceRequestUUID = resourceRequestUUID;
     }
 
     /**
@@ -84,6 +86,10 @@ public class WorkerJobDetail {
      */
     public void setJobStatus(JobStatusEnum jobStatus){
         this.jobStatus = jobStatus;
+    }
+    
+    public UUID getResourceRequestUUID(){
+        return this.resourceRequestUUID;
     }
     
     

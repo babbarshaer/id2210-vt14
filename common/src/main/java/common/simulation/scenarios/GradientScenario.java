@@ -113,7 +113,7 @@ public class GradientScenario extends Scenario{
             SimulationScenario.StochasticProcess bootstrapUtilizationManager = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(1, Operations.bootstrapUtilizationHandler,constant(2600));
+                    raise(1, Operations.bootstrapUtilizationHandler,constant(3000));
                 }
             };
             
