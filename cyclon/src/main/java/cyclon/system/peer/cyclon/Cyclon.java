@@ -74,8 +74,9 @@ public final class Cyclon extends ComponentDefinition {
 			
 			LinkedList<Address> insiders = event.getCyclonInsiders();
 
+                                                                //FIXME: Fix the problem of simultaneous Node Joins.. 
 			if (insiders.size() == 0) {
-				// I am the first peer
+				// I am the first peer, Potential Problem , when many systems simultaneously join  the system.
 				trigger(new JoinCompleted(self), cyclonPort);
 
 				// schedule shuffling

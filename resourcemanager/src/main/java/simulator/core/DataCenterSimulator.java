@@ -36,6 +36,7 @@ import java.util.Random;
 import se.sics.ipasdistances.AsIpGenerator;
 import system.peer.RmPort;
 import se.sics.kompics.p2p.experiment.dsl.events.TerminateExperiment;
+import se.sics.kompics.p2p.overlay.chord.ChordConfiguration;
 import simulator.snapshot.Time;
 import simulator.snapshot.UtilizationPort;
 
@@ -55,6 +56,7 @@ public final class DataCenterSimulator extends ComponentDefinition {
     private Long identifierSpaceSize;
     private ConsistentHashtable<Long> ringNodes;
     private AsIpGenerator ipGenerator = AsIpGenerator.getInstance(125);
+    private ChordConfiguration chordConfiguration;
     
     Random r = new Random(System.currentTimeMillis());
 	
@@ -81,6 +83,7 @@ public final class DataCenterSimulator extends ComponentDefinition {
             cyclonConfiguration = init.getCyclonConfiguration();
             rmConfiguration = init.getAggregationConfiguration();
             tmanConfiguration = init.getTmanConfiguration();
+            chordConfiguration = init.getChordConfiguration();  //TODO: Chord Change.
             
             identifierSpaceSize = cyclonConfiguration.getIdentifierSpaceSize();
             
@@ -163,7 +166,7 @@ public final class DataCenterSimulator extends ComponentDefinition {
         
         AvailableResources ar = new AvailableResources(numCpus, memInMb);
         trigger(new PeerInit(address, bootstrapConfiguration, cyclonConfiguration, 
-                rmConfiguration,tmanConfiguration, ar, utilizationManager), peer.getControl());
+                rmConfiguration,tmanConfiguration,chordConfiguration, ar, utilizationManager), peer.getControl());
 
         trigger(new Start(), peer.getControl());
         peers.put(id, peer);
@@ -212,7 +215,7 @@ public final class DataCenterSimulator extends ComponentDefinition {
             System.out.println("Total time Required for the Job Execution :" + sec +"(s)");
             
             
-           System.exit(1);
+//           System.exit(1);
         } 
     };
 }

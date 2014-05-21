@@ -25,11 +25,13 @@ import common.configuration.CyclonConfiguration;
 import common.peer.AvailableResources;
 import common.peer.PeerDescriptor;
 import cyclon.system.peer.cyclon.*;
+import se.sics.kompics.p2p.overlay.chord.Chord;
 import simulator.snapshot.UtilizationPort;
 import tman.system.peer.tman.GradientEnum;
 import tman.system.peer.tman.TMan;
 import tman.system.peer.tman.TManInit;
 import tman.system.peer.tman.TManSamplePort;
+import tman.system.peer.tman.TManUpdated;
 
 public final class Peer extends ComponentDefinition {
 
@@ -38,7 +40,7 @@ public final class Peer extends ComponentDefinition {
     Positive<Network> network = positive(Network.class);
     Positive<Timer> timer = positive(Timer.class);
 
-    private Component cyclon, cpuTman, rm, bootstrap, memoryTman;
+    private Component cyclon, cpuTman, rm, bootstrap, memoryTman , chord;
     private Address self;
     private int bootstrapRequestPeerCount;          // View Size.
     private boolean bootstrapped;
@@ -46,16 +48,15 @@ public final class Peer extends ComponentDefinition {
 
     private AvailableResources availableResources;
     private Component utilizationManager;
-    int numberOfGradients = 5;
 
-    private Component[] gradientComponentArray;
 
     public Peer() {
         cyclon = create(Cyclon.class);
-        cpuTman = create(TMan.class);
-        memoryTman = create(TMan.class);
+        cpuTman = create(TManUpdated.class);
+        memoryTman = create(TManUpdated.class);
         rm = create(ResourceManager.class);
         bootstrap = create(BootstrapClient.class);
+        chord = create(Chord.class);
 
         connect(network, rm.getNegative(Network.class));
         connect(network, cyclon.getNegative(Network.class));
@@ -108,28 +109,13 @@ public final class Peer extends ComponentDefinition {
             // Create Both Gradients.
             trigger(new TManInit(self, init.getTManConfiguration(), availableResources, GradientEnum.CPU), cpuTman.getControl());
             trigger(new TManInit(self, init.getTManConfiguration(), availableResources, GradientEnum.MEMORY), memoryTman.getControl());
+            
+            //TODO: Chord Change. (Trigger the Chord Initiation Here.)
+            
         }
 
        
     };
-    
-     /**
-      * @deprecated 
-         * Based on the number of gradients, create and initialize the
-         * gradients.
-         */
-        public void intializeAndCreateGradients() {
-            gradientComponentArray = new Component[numberOfGradients];
-
-            for (int i = 0; i < numberOfGradients; i++) {
-                // Create the component.
-                gradientComponentArray[i] = create(TMan.class);
-                // Create the connections now.
-                connect(timer, gradientComponentArray[i].getNegative(Timer.class));
-                connect(cyclon.getPositive(CyclonSamplePort.class), gradientComponentArray[i].getNegative(CyclonSamplePort.class));
-                connect(gradientComponentArray[i].getPositive(TManSamplePort.class), rm.getNegative(TManSamplePort.class));
-            }
-        }
 
     Handler<BootstrapResponse> handleBootstrapResponse = new Handler<BootstrapResponse>() {
         @Override

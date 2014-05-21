@@ -20,6 +20,7 @@ import se.sics.kompics.p2p.bootstrap.BootstrapConfiguration;
 import se.sics.kompics.p2p.bootstrap.server.BootstrapServer;
 import se.sics.kompics.p2p.bootstrap.server.BootstrapServerInit;
 import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
+import se.sics.kompics.p2p.overlay.chord.ChordConfiguration;
 import se.sics.kompics.p2p.simulator.P2pSimulator;
 import se.sics.kompics.p2p.simulator.P2pSimulatorInit;
 import se.sics.kompics.simulation.SimulatorScheduler;
@@ -51,9 +52,11 @@ public final class DataCenterSimulationMain extends ComponentDefinition {
         final CyclonConfiguration cyclonConfig = CyclonConfiguration.load(System.getProperty("cyclon.configuration"));
         final TManConfiguration tmanConfig = TManConfiguration.load(System.getProperty("tman.configuration"));
         final RmConfiguration rmConfig = RmConfiguration.load(System.getProperty("rm.configuration"));
+        final ChordConfiguration chordConfig = ChordConfiguration.load(System.getProperty("chord.configuration"));
+        
 
         trigger(new SimulatorInit(bootConfig, cyclonConfig, tmanConfig,
-                rmConfig, utilizationManager), rmSimulator.getControl());
+                rmConfig, utilizationManager, chordConfig), rmSimulator.getControl());
         trigger(new P2pSimulatorInit(simulatorScheduler, scenario, new KingLatencyMap()), 
                 p2pSimulator.getControl());
         trigger(new BootstrapServerInit(bootConfig), bootstrapServer.getControl());

@@ -77,6 +77,84 @@
             <scope>compile</scope>
         </dependency>
         
+        <dependency>
+            <groupId>se.sics.kompics.p2p.overlay.chord</groupId>
+            <artifactId>kompics-chord-address</artifactId>
+            <version>${kompics.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        
+         <dependency>
+            <groupId>se.sics.kompics.p2p.overlay.chord</groupId>
+            <artifactId>kompics-chord-message</artifactId>
+            <version>${kompics.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        
+        
+        <dependency>
+            <groupId>se.sics.kompics.p2p.overlay.chord</groupId>
+            <artifactId>kompics-component-chord-iterative-router</artifactId>
+            <version>${kompics.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        
+        <dependency>
+            <groupId>se.sics.kompics.p2p.overlay.chord</groupId>
+            <artifactId>kompics-component-chord-overlay</artifactId>
+            <version>${kompics.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        
+        <dependency>
+            <groupId>se.sics.kompics.p2p.overlay.chord</groupId>
+            <artifactId>kompics-component-chord-ring</artifactId>
+            <version>${kompics.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        
+        <dependency>
+            <groupId>se.sics.kompics.p2p.overlay.chord</groupId>
+            <artifactId>kompics-port-chord-status</artifactId>
+            <version>${kompics.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        
+        <dependency>
+            <groupId>se.sics.kompics.p2p.overlay.chord</groupId>
+            <artifactId>kompics-port-chord-router</artifactId>
+            <version>${kompics.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        
+        <dependency>
+            <groupId>se.sics.kompics.p2p.overlay.chord</groupId>
+            <artifactId>kompics-port-chord-ring</artifactId>
+            <version>${kompics.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        
+        <dependency>
+            <groupId>se.sics.kompics.p2p.overlay.chord</groupId>
+            <artifactId>kompics-port-chord-overlay</artifactId>
+            <version>${kompics.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        
+        <dependency>
+            <groupId>se.sics.kompics.p2p</groupId>
+            <artifactId>kompics-component-failure-detector</artifactId>
+            <version>${kompics.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        
+        <dependency>
+            <groupId>se.sics.kompics.p2p</groupId>
+            <artifactId>kompics-port-failure-detector</artifactId>
+            <version>${kompics.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        
         
         <dependency>
             <groupId>se.sics</groupId>

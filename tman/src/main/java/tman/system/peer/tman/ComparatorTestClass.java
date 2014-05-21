@@ -20,29 +20,34 @@ public class ComparatorTestClass {
 
     public static void main(String[] args) {
 
-        List<Integer> dummyIntegers = new ArrayList<Integer>();
-        dummyIntegers.add(2);
-        dummyIntegers.add(0);
-        dummyIntegers.add(4);
-        dummyIntegers.add(6);
-        dummyIntegers.add(8);
-        dummyIntegers.add(10);
-        dummyIntegers.add(8);
-
-//        Collections.sort(dummyIntegers, new ComparatorByResource(8));
-//        for (Integer i : dummyIntegers) {
-//            System.out.println("Integer Value : " + i);
-//        }
+//        List<Integer> dummyIntegers = new ArrayList<Integer>();
+//        dummyIntegers.add(2);
+//        dummyIntegers.add(0);
+//        dummyIntegers.add(4);
+//        dummyIntegers.add(6);
+//        dummyIntegers.add(8);
+//        dummyIntegers.add(10);
+//        dummyIntegers.add(8);
+//
+////        Collections.sort(dummyIntegers, new ComparatorByResource(8));
+////        for (Integer i : dummyIntegers) {
+////            System.out.println("Integer Value : " + i);
+////        }
+//        
+//        Integer response1 = getNeighborUsingModifiedApproach(dummyIntegers);
+//        Integer response2 = getNeighborUsingModifiedApproach(dummyIntegers);
+//        Integer response3 = getNeighborUsingModifiedApproach(dummyIntegers);
+//        
+//
+//        System.out.println("Response1: " + response1 + " Response2: " + response2 + " Response3: " + response3);
+//        
+//        
+//        List<Integer> integer = new ArrayList<Integer>();
         
-        Integer response1 = getNeighborUsingModifiedApproach(dummyIntegers);
-        Integer response2 = getNeighborUsingModifiedApproach(dummyIntegers);
-        Integer response3 = getNeighborUsingModifiedApproach(dummyIntegers);
         
-
-        System.out.println("Response1: " + response1 + " Response2: " + response2 + " Response3: " + response3);
+        int result =  (int) (Math.ceil(Math.log(Integer.MAX_VALUE)/Math.log(2)));
         
-        
-        List<Integer> integer = new ArrayList<Integer>();
+        System.out.println("Result :" + result);
         
         
         

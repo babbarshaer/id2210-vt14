@@ -1,4 +1,6 @@
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 /*
@@ -14,8 +16,25 @@ import java.util.Random;
 public class TestClass {
     
     public static void main(String[] args) {
-        Random random = new Random();
-        System.out.println("Random Number:" + random.nextInt(10));
+        
+        
+        List<Integer> integerList = new ArrayList<Integer>();
+        integerList.add(1);
+        integerList.add(2);
+        integerList.add(3);
+        integerList.add(4);
+        integerList.add(5);
+        integerList.add(6);
+        
+        
+        List<Integer> newIntegerList = new ArrayList<Integer>(integerList);
+        newIntegerList.subList(2, newIntegerList.size()).clear();
+        
+                
+        for(Integer i : newIntegerList)
+            System.out.println("Integer: " + i);
+        
+        
     }
     
 }

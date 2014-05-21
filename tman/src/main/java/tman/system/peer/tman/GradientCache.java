@@ -40,14 +40,14 @@ public class GradientCache {
     private ArrayList<ViewEntry> entries;
     private HashMap<Address, ViewEntry> d2e;
     private Random random = new Random(10);
-    
+
     //FIXME: Incorporate the SoftMax Approach in the same
     private AvailableResources availableResources;
     private double temperature;
     private Random r;
     private GradientEnum gradientEnum;
 
-    public GradientCache(int size, Address self, AvailableResources availableResources , double temperature , Random r, GradientEnum gradientEnum) {
+    public GradientCache(int size, Address self, AvailableResources availableResources, double temperature, Random r, GradientEnum gradientEnum) {
         super();
         this.self = self;
         this.size = size;
@@ -117,12 +117,20 @@ public class GradientCache {
     }
 
     /**
-     * Peer retention strategy in the view for a base node.
+     * FIXME: Bug in the strategy causes it to form eclipsed node in case the
+     * number of similar peers is greater than view size.
      *
      * @param from
      * @param descriptors
      */
-    public void selectToKeep(ArrayList<PeerDescriptor> descriptors) {
+    public void selectToKeep(Address from, ArrayList<PeerDescriptor> descriptors) {
+
+        LinkedList<ViewEntry> entriesSentToThisPeer = new LinkedList<ViewEntry>();
+        for (ViewEntry cacheEntry : entries) {
+            if (cacheEntry.wasSentTo(from)) {
+                entriesSentToThisPeer.add(cacheEntry);
+            }
+        }
 
         for (PeerDescriptor descriptor : descriptors) {
             if (self.equals(descriptor.getAddress())) {
@@ -147,6 +155,9 @@ public class GradientCache {
             addEntry(new ViewEntry(descriptor));
         }
 
+        //Once the Entries Are added in the system, shuffle them and then sort.
+        Collections.shuffle(entries);
+        
         // Now once the entries are merged, sort them based on the utility.
         arrangeNodesInPreferenceOrder();
         //Check for any king of discrepancy.
@@ -161,21 +172,23 @@ public class GradientCache {
      * Bring size of the view back to the constant value.
      */
     private void removeExcessEntries() {
-       
-        if (entries.size() <=  size) {
+
+        if (entries.size() <= size) {
             return;
         }
-        
-        int listSize = entries.size();       
-        while(listSize > size){
-            removeEntry(entries.get(listSize-1));
-            listSize -=1;
+
+        int listSize = entries.size();
+        while (listSize > size) {
+            removeEntry(entries.get(listSize - 1));
+            listSize -= 1;
         }
     }
 
     /**
-     * Simply return all the peer descriptors present in the view of the base node.
-     * @return 
+     * Simply return all the peer descriptors present in the view of the base
+     * node.
+     *
+     * @return
      */
     public final ArrayList<PeerDescriptor> getAll() {
         ArrayList<PeerDescriptor> descriptors = new ArrayList<PeerDescriptor>();
@@ -187,7 +200,6 @@ public class GradientCache {
         return descriptors;
     }
 
-    
     public final List<Address> getRandomPeers(int count) {
         ArrayList<ViewEntry> randomEntries = generateRandomSample(count);
         LinkedList<Address> randomPeers = new LinkedList<Address>();
@@ -201,8 +213,9 @@ public class GradientCache {
 
     /**
      * Randomly select the entries from the base node view.
+     *
      * @param n
-     * @return 
+     * @return
      */
     private ArrayList<ViewEntry> generateRandomSample(int n) {
         ArrayList<ViewEntry> randomEntries;
@@ -228,35 +241,31 @@ public class GradientCache {
         return randomEntries;
     }
 
-    
     private void addEntry(ViewEntry entry) {
         entries.add(entry);
         d2e.put(entry.getDescriptor().getAddress(), entry);
         checkSize();
     }
 
-    
     private void removeEntry(ViewEntry entry) {
         entries.remove(entry);
         d2e.remove(entry.getDescriptor().getAddress());
         checkSize();
     }
 
-    
     private void checkSize() {
         if (entries.size() != d2e.size()) {
             throw new RuntimeException("WHD " + entries.size() + " <> " + d2e.size());
         }
     }
 
-    
     /**
      * Sort the nodes in the decreasing order of there utility. Performed after
      * merging.
      *
      * @param partnersDescriptor
      */
-    private void arrangeNodesInPreferenceOrder() {
+    public void arrangeNodesInPreferenceOrder() {
 
         //For now lets just choose free cpu's as the ordering mechanism.
         //FIXME: Add check based on which the gradient that is required to be built.
@@ -280,7 +289,6 @@ public class GradientCache {
 
     }
 
-    
     /**
      * Simply check if nodeResourceInfo1 is better suited to be neighbor of base
      * node than nodeResourceInfo2.
@@ -290,47 +298,47 @@ public class GradientCache {
      * @return
      */
     private boolean isDecreasingOrder(PeerDescriptor partnerDescriptor1, PeerDescriptor partnerDescriptor2) {
-        
+
         int baseNodeUtility = 0;
         int nodeUtility1 = 0;
-        int nodeUtility2 =0 ;
-        
-        if(gradientEnum == GradientEnum.CPU){
+        int nodeUtility2 = 0;
+
+        if (gradientEnum == GradientEnum.CPU) {
             baseNodeUtility = availableResources.getNumFreeCpus();
             nodeUtility1 = partnerDescriptor1.getFreeCpu();
             nodeUtility2 = partnerDescriptor2.getFreeCpu();
-        }
-        
-        else if(gradientEnum  == GradientEnum.MEMORY){
+        } else if (gradientEnum == GradientEnum.MEMORY) {
             baseNodeUtility = availableResources.getFreeMemInMbs();
             nodeUtility1 = partnerDescriptor1.getFreeMemory();
             nodeUtility2 = partnerDescriptor2.getFreeMemory();
         }
-        
+
         return basicUtilityPreferenceOrder(baseNodeUtility, nodeUtility1, nodeUtility2);
     }
 
-/**
- *  Apply Simple Utility Preference Order on the supplied values.
- *  FIXME: Come Up with a combined Utility Preference Order.
- * @param baseNodeUtility
- * @param nodeUtility1
- * @param nodeUtility2 
- */
-    
-    private boolean basicUtilityPreferenceOrder(int baseNodeUtility , int nodeUtility1 , int nodeUtility2){        
-        if((nodeUtility1 > baseNodeUtility && baseNodeUtility > nodeUtility2)  || (Math.abs(nodeUtility1-baseNodeUtility) < Math.abs(nodeUtility2 - baseNodeUtility)))
-                return true;
+    /**
+     * Apply Simple Utility Preference Order on the supplied values. FIXME: Come
+     * Up with a combined Utility Preference Order.
+     *
+     * @param baseNodeUtility
+     * @param nodeUtility1
+     * @param nodeUtility2
+     */
+    private boolean basicUtilityPreferenceOrder(int baseNodeUtility, int nodeUtility1, int nodeUtility2) {
+        if ((nodeUtility1 > baseNodeUtility && baseNodeUtility > nodeUtility2) || (Math.abs(nodeUtility1 - baseNodeUtility) < Math.abs(nodeUtility2 - baseNodeUtility))) {
+            return true;
+        }
         return false;
     }
-    
-     /**
+
+    /**
      * Select a random neighbor from the list.
-     * @return 
+     *
+     * @return
      */
     public Address getSoftMaxAddressForGradient() {
         //Collections.sort(entries, new ComparatorById(self));  // No sorting required as already sorted.
-        
+
         double rnd = r.nextDouble();
         double total = 0.0d;
         double[] values = new double[entries.size()];
@@ -356,4 +364,47 @@ public class GradientCache {
         return entries.isEmpty() ? null : entries.get(entries.size() - 1).getDescriptor().getAddress();
     }
 
+    public void setEntry(ArrayList<ViewEntry> entries) {
+        this.entries = entries;
+    }
+
+    public List<ViewEntry> getEntries() {
+        return this.entries;
+    }
+
+    void selectToKeepRandom(ArrayList<PeerDescriptor> descriptors) {
+
+        for (PeerDescriptor descriptor : descriptors) {
+            if (self.equals(descriptor.getAddress())) {
+                // do not keep descriptor of self
+                continue;
+            }
+
+            // Keep the freshest peers.
+            if (d2e.containsKey(descriptor.getAddress())) {
+
+                ViewEntry entry = d2e.get(descriptor.getAddress());
+                if (entry.getDescriptor().getAge() > descriptor.getAge()) {
+                    // we keep the lowest age descriptor
+                    removeEntry(entry);
+                    addEntry(new ViewEntry(descriptor));
+                    continue;
+                } else {
+                    continue;
+                }
+            }
+            // add a new entry.
+            addEntry(new ViewEntry(descriptor));
+
+            // Now once the entries are merged, sort them based on the utility.
+            arrangeNodesInPreferenceOrder();
+            //Check for any king of discrepancy.
+            checkSize();
+            //Now remove the entries based on the top ranking selection policy.
+            removeExcessEntries();
+            //Again check the size.
+            checkSize();
+
+        }
+    }
 }

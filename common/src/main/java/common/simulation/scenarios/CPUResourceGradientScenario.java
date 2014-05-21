@@ -19,9 +19,9 @@ public class CPUResourceGradientScenario extends Scenario {
             SimulationScenario.StochasticProcess peerAdd0 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(1000));
-                    raise(5, Operations.peerJoin(),
+                    raise(20, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(2), constant(10000)
+                            constant(2), constant(4000)
                     );
                 }
             };
@@ -29,9 +29,9 @@ public class CPUResourceGradientScenario extends Scenario {
             SimulationScenario.StochasticProcess peerAdd1 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(1000));
-                    raise(5, Operations.peerJoin(),
+                    raise(20, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(4), constant(10000)
+                            constant(4), constant(6000)
                     );
                 }
             };
@@ -41,9 +41,9 @@ public class CPUResourceGradientScenario extends Scenario {
             SimulationScenario.StochasticProcess peerAdd2 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(1000));
-                    raise(5, Operations.peerJoin(),
+                    raise(20, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(6), constant(10000)
+                            constant(6), constant(8000)
                     );
                 }
             };
@@ -51,9 +51,9 @@ public class CPUResourceGradientScenario extends Scenario {
             SimulationScenario.StochasticProcess peerAdd3 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(1000));
-                    raise(5, Operations.peerJoin(),
+                    raise(20, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(8), constant(10000)
+                            constant(10), constant(10000)
                     );
                 }
             };
@@ -61,9 +61,9 @@ public class CPUResourceGradientScenario extends Scenario {
             SimulationScenario.StochasticProcess peerAdd4 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(1000));
-                    raise(5, Operations.peerJoin(),
+                    raise(20, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(10), constant(10000)
+                            constant(16), constant(18000)
                     );
                 }
             };
@@ -73,52 +73,52 @@ public class CPUResourceGradientScenario extends Scenario {
                     eventInterArrivalTime(constant(1000));
                     raise(5, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(12), constant(10000)
+                            constant(18), constant(20000)
                     );
                 }
             };
 
-            SimulationScenario.StochasticProcess peerAdd6 = new SimulationScenario.StochasticProcess() {
-                {
-                    eventInterArrivalTime(constant(1000));
-                    raise(5, Operations.peerJoin(),
-                            uniform(0, Integer.MAX_VALUE),
-                            constant(14), constant(10000)
-                    );
-                }
-            };
+//            SimulationScenario.StochasticProcess peerAdd6 = new SimulationScenario.StochasticProcess() {
+//                {
+//                    eventInterArrivalTime(constant(1000));
+//                    raise(5, Operations.peerJoin(),
+//                            uniform(0, Integer.MAX_VALUE),
+//                            constant(14), constant(10000)
+//                    );
+//                }
+//            };
             
             
-            SimulationScenario.StochasticProcess peerAdd7 = new SimulationScenario.StochasticProcess() {
-                {
-                    eventInterArrivalTime(constant(1000));
-                    raise(5, Operations.peerJoin(),
-                            uniform(0, Integer.MAX_VALUE),
-                            constant(3), constant(10000)
-                    );
-                }
-            };
+//            SimulationScenario.StochasticProcess peerAdd7 = new SimulationScenario.StochasticProcess() {
+//                {
+//                    eventInterArrivalTime(constant(1000));
+//                    raise(5, Operations.peerJoin(),
+//                            uniform(0, Integer.MAX_VALUE),
+//                            constant(3), constant(10000)
+//                    );
+//                }
+//            };
             
-            
-            SimulationScenario.StochasticProcess peerAdd8 = new SimulationScenario.StochasticProcess() {
-                {
-                    eventInterArrivalTime(constant(1000));
-                    raise(5, Operations.peerJoin(),
-                            uniform(0, Integer.MAX_VALUE),
-                            constant(5), constant(10000)
-                    );
-                }
-            };
-            
-            SimulationScenario.StochasticProcess peerAdd9 = new SimulationScenario.StochasticProcess() {
-                {
-                    eventInterArrivalTime(constant(1000));
-                    raise(5, Operations.peerJoin(),
-                            uniform(0, Integer.MAX_VALUE),
-                            constant(1), constant(10000)
-                    );
-                }
-            };
+//            
+//            SimulationScenario.StochasticProcess peerAdd8 = new SimulationScenario.StochasticProcess() {
+//                {
+//                    eventInterArrivalTime(constant(1000));
+//                    raise(5, Operations.peerJoin(),
+//                            uniform(0, Integer.MAX_VALUE),
+//                            constant(5), constant(10000)
+//                    );
+//                }
+//            };
+//            
+//            SimulationScenario.StochasticProcess peerAdd9 = new SimulationScenario.StochasticProcess() {
+//                {
+//                    eventInterArrivalTime(constant(1000));
+//                    raise(5, Operations.peerJoin(),
+//                            uniform(0, Integer.MAX_VALUE),
+//                            constant(1), constant(10000)
+//                    );
+//                }
+//            };
             
             
 
@@ -127,7 +127,7 @@ public class CPUResourceGradientScenario extends Scenario {
                     eventInterArrivalTime(constant(100));
                     raise(500, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(2), constant(1000),
+                            constant(2), constant(1),
                             constant(10 * 2 * 1) // 1 minute
                     );
                 }
@@ -138,7 +138,7 @@ public class CPUResourceGradientScenario extends Scenario {
                     eventInterArrivalTime(constant(50));
                     raise(500, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(3), constant(1000),
+                            constant(3), constant(1),
                             constant(10 * 3 * 1) // 1 minute
                     );
                 }
@@ -149,8 +149,8 @@ public class CPUResourceGradientScenario extends Scenario {
                     eventInterArrivalTime(constant(100));
                     raise(500, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(5), constant(1000),
-                            constant(10 * 4 * 1) // 1 minute
+                            constant(5), constant(1),
+                            constant(10 * 5* 1) // 1 minute
                     );
                 }
             };
@@ -160,8 +160,8 @@ public class CPUResourceGradientScenario extends Scenario {
                     eventInterArrivalTime(constant(100));
                     raise(500, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(7), constant(1000),
-                            constant(10 * 3 * 1) // 1 minute
+                            constant(7), constant(1),
+                            constant(10 * 7 * 1) // 1 minute
                     );
                 }
             };
@@ -171,8 +171,8 @@ public class CPUResourceGradientScenario extends Scenario {
                     eventInterArrivalTime(constant(100));
                     raise(500, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(9), constant(1000),
-                            constant(10 * 4 * 1) // 1 minute
+                            constant(9), constant(1),
+                            constant(10 * 7 * 1) // 1 minute
                     );
                 }
             };
@@ -182,8 +182,8 @@ public class CPUResourceGradientScenario extends Scenario {
                     eventInterArrivalTime(constant(100));
                     raise(500, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(11), constant(1000),
-                            constant(10 * 4 * 1) // 1 minute
+                            constant(11), constant(1),
+                            constant(10 * 6 * 1) // 1 minute
                     );
                 }
             };
@@ -193,8 +193,19 @@ public class CPUResourceGradientScenario extends Scenario {
                     eventInterArrivalTime(constant(100));
                     raise(500, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(14), constant(1000),
-                            constant(10 * 4 * 1) // 1 minute
+                            constant(13), constant(1),
+                            constant(10 * 6* 1) // 1 minute
+                    );
+                }
+            };
+            
+            SimulationScenario.StochasticProcess process8 = new SimulationScenario.StochasticProcess() {
+                {
+                    eventInterArrivalTime(constant(100));
+                    raise(500, Operations.requestResources(),
+                            uniform(0, Integer.MAX_VALUE),
+                            constant(15), constant(1),
+                            constant(10 * 5* 1) // 1 minute
                     );
                 }
             };
@@ -219,7 +230,7 @@ public class CPUResourceGradientScenario extends Scenario {
             SimulationScenario.StochasticProcess bootstrapUtilizationManager = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(1, Operations.bootstrapUtilizationHandler, constant(1000));
+                    raise(1, Operations.bootstrapUtilizationHandler, constant(4000));
                 }
             };
 
@@ -232,31 +243,32 @@ public class CPUResourceGradientScenario extends Scenario {
 
             // CPU Gradient Test.
             peerAdd0.start();
-            peerAdd1.startAfterTerminationOf(5000, peerAdd0);
-            peerAdd2.startAfterTerminationOf(5000, peerAdd1);
-            peerAdd3.startAfterTerminationOf(100, peerAdd2);
-            peerAdd4.startAfterTerminationOf(100, peerAdd3);
-            peerAdd5.startAfterTerminationOf(100, peerAdd4);
-            peerAdd6.startAfterTerminationOf(100, peerAdd5);
-            peerAdd7.startAfterTerminationOf(100, peerAdd6);
-            peerAdd8.startAfterTerminationOf(100, peerAdd7);
-            peerAdd8.startAfterTerminationOf(100, peerAdd8);
+            peerAdd1.startAfterTerminationOf(1000,peerAdd0);
+            peerAdd2.startAfterTerminationOf(1000,peerAdd1);
+            peerAdd3.startAfterTerminationOf(1000,peerAdd2);
+            peerAdd4.startAfterTerminationOf(1000,peerAdd3);
+            peerAdd5.startAfterTerminationOf(1000,peerAdd4);
+//            peerAdd6.startAfterTerminationOf(100, peerAdd5);
+//            peerAdd7.startAfterTerminationOf(100, peerAdd6);
+//            peerAdd8.startAfterTerminationOf(100, peerAdd7);
+//            peerAdd8.startAfterTerminationOf(100, peerAdd8);
 
-            bootstrapUtilizationManager.startAfterTerminationOf(100, peerAdd1);
+            bootstrapUtilizationManager.startAfterTerminationOf(100, peerAdd0);
 
             // Peer Initialization and bootstrapping of the utilization manager complete.
             // Schedule the resources now.
-//            process1.startAfterTerminationOf(1000, peerAdd5);
-            
-//            process2.startAfterTerminationOf(1000, process1);
-//            process3.startAfterTerminationOf(1000, process2);
+            process1.startAfterTerminationOf(3000, peerAdd0);
+            process2.startAtSameTimeWith(process1);
+            process3.startAtSameTimeWith(process1);
+            resourceRequestInitiation.startAtSameTimeWith(process1);
 //
-//            process4.startAfterTerminationOf(1000, process3);
-//            process5.startAfterTerminationOf(1000, process4);
-            process6.startAfterTerminationOf(1000, peerAdd0);
-            resourceRequestInitiation.startAtSameTimeWith(process6);
-            process7.startAfterTerminationOf(1000, process6);
+            process4.startAfterTerminationOf(1000, process3);
+            process5.startAtSameTimeWith(process4);
+            process6.startAtSameTimeWith(process4);
             
+            process7.startAfterTerminationOf(1000, process6);
+            process8.startAtSameTimeWith(process7);
+//            
             //requestSchedulingCompletionProcess.startAtSameTimeWith(process1);
 //            process2.startAfterTerminationOf(3000, process0);
 //            process3.startAfterTerminationOf(2000, process0);

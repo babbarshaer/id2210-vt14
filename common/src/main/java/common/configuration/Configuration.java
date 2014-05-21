@@ -7,6 +7,7 @@ import java.net.UnknownHostException;
 
 import se.sics.kompics.address.Address;
 import se.sics.kompics.p2p.bootstrap.BootstrapConfiguration;
+import se.sics.kompics.p2p.overlay.chord.ChordConfiguration;
 
 public class Configuration {
 
@@ -30,6 +31,7 @@ public class Configuration {
     CyclonConfiguration cyclonConfiguration;
     TManConfiguration tmanConfiguration;
     RmConfiguration searchConfiguration;
+    ChordConfiguration chordConfiguration;
 
     public Configuration(long seed) throws IOException {
         this.seed = seed;
@@ -39,6 +41,9 @@ public class Configuration {
         cyclonConfiguration = new CyclonConfiguration(seed, 5, 10 , 30 , 500000,
                 (long) (Integer.MAX_VALUE - Integer.MIN_VALUE), 20);
 
+        int log2RingSize = (int) (Math.ceil(Math.log(Integer.MAX_VALUE)/Math.log(2)));
+        chordConfiguration  = new ChordConfiguration(log2RingSize, 3,1000 , 1000 , 5000 , 1);
+        
         String c = File.createTempFile("bootstrap.", ".conf").getAbsolutePath();
         bootConfiguration.store(c);
         System.setProperty("bootstrap.configuration", c);
@@ -54,5 +59,11 @@ public class Configuration {
         c = File.createTempFile("rm.", ".conf").getAbsolutePath();
         searchConfiguration.store(c);
         System.setProperty("rm.configuration", c);
+        
+        c= File.createTempFile("chord", ".conf").getAbsolutePath();
+        chordConfiguration.store(c);
+        System.setProperty("chord.configuration",c);
+        
+                
     }
 }

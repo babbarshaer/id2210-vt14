@@ -40,7 +40,6 @@ public final class TMan extends ComponentDefinition {
     Positive<Timer> timerPort = positive(Timer.class);
     private long period;
     private Address self;
-    private ArrayList<Address> tmanPartners;
     private TManConfiguration tmanConfiguration;
     private Random r;
     private AvailableResources availableResources;
@@ -52,6 +51,7 @@ public final class TMan extends ComponentDefinition {
     private GradientCache gradientCache;
     GradientEnum gradientEnum;
     private ArrayList<PeerDescriptor> fingerList;
+    private List<PeerDescriptor> cyclonPeerDescriptors;
 
     public class TManSchedule extends Timeout {
 
@@ -65,13 +65,13 @@ public final class TMan extends ComponentDefinition {
     }
 
     public TMan() {
-        tmanPartners = new ArrayList<Address>();
 
         subscribe(handleInit, control);
         subscribe(handleRound, timerPort);
         subscribe(handleCyclonSample, cyclonSamplePort);
         subscribe(handleTManPartnersResponse, networkPort);
         subscribe(handleTManPartnersRequest, networkPort);
+        
     }
 
     Handler<TManInit> handleInit = new Handler<TManInit>() {
@@ -89,6 +89,7 @@ public final class TMan extends ComponentDefinition {
             schuffleTimeout = tmanConfiguration.getShuffleTimeout();
             gradientEnum = init.getGradientEnum();
             gradientCache = new GradientCache(similarViewSize, self, availableResources, tmanConfiguration.getTemperature(), r, gradientEnum);
+            cyclonPeerDescriptors = new ArrayList<PeerDescriptor>();
 
             // Finger Implementation.
             fingerList = new ArrayList<PeerDescriptor>();
@@ -109,8 +110,8 @@ public final class TMan extends ComponentDefinition {
 
             Snapshot.updateTManPartners(self, getSimilarPeers());
             // Increment the age and remove the entry with oldest age to keep rotating.
-            gradientCache.incrementDescriptorAges();
-            Address randomPeer = gradientCache.selectPeerToShuffleWith();
+//            gradientCache.incrementDescriptorAges();
+            Address randomPeer = gradientCache.getSoftMaxAddressForGradient();
             // Only if you find a peer to shuffle the view with you progress.
             if (randomPeer != null) {
 
@@ -118,6 +119,10 @@ public final class TMan extends ComponentDefinition {
                 initiateGradientShuffle(shuffleLength, randomPeer);
                 // Publish sample to connected components.
                 trigger(new TManSample(getSimilarPeers(), getSimilarPeersInfo(), gradientEnum, fingerList), tmanPort);
+            }
+            else{
+//                logger.info("Random Peer To Talk to is null .....");
+////                logger.info("Cyclon Sample Length : " + cyclonPeerDescriptors.size());
             }
         }
     };
@@ -155,7 +160,7 @@ public final class TMan extends ComponentDefinition {
             refershFingerList(partnerDescriptors);
             
             //Add all the cyclion samples in the gradient cache and check if they are better match.
-            gradientCache.selectToKeep(partnerDescriptors);
+//            gradientCache.selectToKeep(partnerDescriptors);
         }
     };
 
@@ -215,7 +220,7 @@ public final class TMan extends ComponentDefinition {
             DescriptorBuffer receivedDescriptorBuffer = event.getRandomBuffer();
             DescriptorBuffer descriptorBufferToSend = new DescriptorBuffer(self, gradientCache.selectToSendAtPassive(receivedDescriptorBuffer.getSize(), peer));
 
-            gradientCache.selectToKeep(receivedDescriptorBuffer.getDescriptors());
+//            gradientCache.selectToKeep(receivedDescriptorBuffer.getDescriptors());
             ExchangeMsg.Response response = new ExchangeMsg.Response(event.getRequestId(), descriptorBufferToSend, self, peer);
 
             //Send reply back to the peer.
@@ -236,7 +241,7 @@ public final class TMan extends ComponentDefinition {
 
             Address peer = event.getSelectedBuffer().getFrom();
             DescriptorBuffer receivedDescriptorBuffer = event.getSelectedBuffer();
-            gradientCache.selectToKeep(receivedDescriptorBuffer.getDescriptors());
+//            gradientCache.selectToKeep(receivedDescriptorBuffer.getDescriptors());
 
         }
     };

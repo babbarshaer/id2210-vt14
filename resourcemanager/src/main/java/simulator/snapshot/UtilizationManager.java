@@ -95,8 +95,8 @@ public class UtilizationManager extends ComponentDefinition {
         public void handle(RequestCompletion event) {
 
             requestIdList.add(event.getId());
+            
             if (requestIdList.size() == numberOfJobsScheduled) {
-                
                 finishTime = System.currentTimeMillis();
                 computeTime();
             }
