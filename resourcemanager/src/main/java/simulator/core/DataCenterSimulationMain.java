@@ -69,6 +69,7 @@ public final class DataCenterSimulationMain extends ComponentDefinition {
         connect(rmSimulator.getNegative(SimulatorPort.class), p2pSimulator.getPositive(SimulatorPort.class));
         
         connect(rmSimulator.getNegative(UtilizationPort.class), utilizationManager.getPositive(UtilizationPort.class));
+        connect(utilizationManager.getNegative(Timer.class), p2pSimulator.getPositive(Timer.class));
         connect(utilizationManager.getNegative(SimulatorPort.class), p2pSimulator.getPositive(SimulatorPort.class));
     }
 

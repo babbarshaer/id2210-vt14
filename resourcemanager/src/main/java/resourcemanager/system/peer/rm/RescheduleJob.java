@@ -65,6 +65,14 @@ public class RescheduleJob extends Message {
     public UUID getResourceRequestUUID(){
         return this.resourceRequestUUID;
     }
+    
+    public void setDestinationAddress(Address address){
+        setDestination(address);
+    }
+    
+    public void resetTTL(){
+        this.TTL = 3;
+    }
 
     @Override
     public boolean equals(Object obj) {

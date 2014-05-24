@@ -35,6 +35,10 @@ public class UtilizationManager extends ComponentDefinition {
     Positive<SimulatorPort> p2pSimulatorPort = requires(SimulatorPort.class);
     long startTime;
     long finishTime;
+    long ninetyNinthIndex;
+    long ninetyNinthIndexTime;
+
+    int number = 0;
 
     private final Logger logger = LoggerFactory.getLogger(UtilizationManager.class);
 
@@ -47,18 +51,24 @@ public class UtilizationManager extends ComponentDefinition {
         subscribe(bootstrapHandler, p2pSimulatorPort);
         subscribe(requestInitiationHandler, p2pSimulatorPort);
         subscribe(requestCompletionHandler, utilizationManagerPort);
-        subscribe(updateTimeoutHandler, timerport);
+//        subscribe(updateTimeoutHandler, timerport);
 
-        SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(1000, 1000);
-        rst.setTimeoutEvent(new UpdateTimeout(rst));
-        trigger(rst, timerport);
 
     }
 
-    Handler<UpdateTimeout> updateTimeoutHandler = new Handler<UpdateTimeout>() {
+    Handler<UtilizationManagerInit> init = new Handler<UtilizationManagerInit>() {
 
         @Override
-        public void handle(UpdateTimeout event) {
+        public void handle(UtilizationManagerInit event) {
+
+        }
+
+    };
+
+    Handler<UtilizationCalculationTimeout> updateTimeoutHandler = new Handler<UtilizationCalculationTimeout>() {
+
+        @Override
+        public void handle(UtilizationCalculationTimeout event) {
             logger.info(" Number of Completed Requests So Far ..... " + requestIdList.size());
         }
 
@@ -72,6 +82,9 @@ public class UtilizationManager extends ComponentDefinition {
         public void handle(BootstrapUtilizationHandler event) {
             //logger.info("Received the bootstrap request .... ");
             numberOfJobsScheduled = event.getRequestsToBeScheduled();
+            ninetyNinthIndex = (99 * numberOfJobsScheduled) / 100;
+            logger.info(" 99% index for: " + numberOfJobsScheduled + " Jobs is: " + ninetyNinthIndex);
+
         }
     };
 
@@ -94,14 +107,19 @@ public class UtilizationManager extends ComponentDefinition {
         @Override
         public void handle(RequestCompletion event) {
 
-            requestIdList.add(event.getId());
-            
-            if (requestIdList.size() == numberOfJobsScheduled) {
+//            requestIdList.add(event.getId());
+            number += 1;
+
+            if (number == ninetyNinthIndex) {
+                ninetyNinthIndexTime = System.currentTimeMillis();
+            }
+
+            if (number == numberOfJobsScheduled) {
                 finishTime = System.currentTimeMillis();
                 computeTime();
             }
-            
-            logger.info("Jobs Completed: " + requestIdList.size());
+
+            logger.info("Jobs Completed: " + number);
         }
     };
 
@@ -111,7 +129,7 @@ public class UtilizationManager extends ComponentDefinition {
      */
     private void computeTime() {
         long totalTime = finishTime - startTime;
-        trigger(new Time(totalTime), utilizationManagerPort);
+        trigger(new Time(totalTime, ninetyNinthIndexTime), utilizationManagerPort);
     }
 
 }

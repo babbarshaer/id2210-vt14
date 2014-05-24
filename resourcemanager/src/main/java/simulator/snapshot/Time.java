@@ -15,13 +15,19 @@ import se.sics.kompics.Event;
 public class Time extends Event{
     
     private final long totalTime;
+    private final long ninetyNinthTime;
     
-    public Time(long totalTime){
+    public Time(long totalTime , long ninetyNinthTime){
         this.totalTime = totalTime;
+        this.ninetyNinthTime = ninetyNinthTime;
     }
+    
     
     public long getTotalTime(){
         return this.totalTime;
     }
-    
+ 
+    public long getNinetyNinthTime(){
+        return this.ninetyNinthTime;
+    }
 }

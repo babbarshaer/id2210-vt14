@@ -134,6 +134,9 @@ public final class Cyclon extends ComponentDefinition {
 				initiateShuffle(shuffleLength, randomPeer);
                                 trigger(new CyclonSample(getPartners(), getPartnersInfo()), samplePort);         //TODO: Gradient Change.
 			}
+                        else{
+                            System.out.println("Cyclon Sample Is Null .... ");
+                        }
 		}
 	};
 

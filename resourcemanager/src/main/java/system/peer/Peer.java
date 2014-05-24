@@ -25,7 +25,11 @@ import common.configuration.CyclonConfiguration;
 import common.peer.AvailableResources;
 import common.peer.PeerDescriptor;
 import cyclon.system.peer.cyclon.*;
+import resourcemanager.system.peer.rm.ResourceManagerUpdated;
+import se.sics.kompics.p2p.fd.FailureDetector;
 import se.sics.kompics.p2p.overlay.chord.Chord;
+import se.sics.kompics.p2p.overlay.chord.ChordConfiguration;
+import se.sics.kompics.p2p.overlay.chord.ChordInit;
 import simulator.snapshot.UtilizationPort;
 import tman.system.peer.tman.GradientEnum;
 import tman.system.peer.tman.TMan;
@@ -39,12 +43,14 @@ public final class Peer extends ComponentDefinition {
 
     Positive<Network> network = positive(Network.class);
     Positive<Timer> timer = positive(Timer.class);
-
+    Positive<FailureDetector> failureDetector = positive(FailureDetector.class);
+    
     private Component cyclon, cpuTman, rm, bootstrap, memoryTman , chord;
     private Address self;
     private int bootstrapRequestPeerCount;          // View Size.
     private boolean bootstrapped;
     private RmConfiguration rmConfiguration;
+    private ChordConfiguration chordConfig;
 
     private AvailableResources availableResources;
     private Component utilizationManager;
@@ -54,7 +60,7 @@ public final class Peer extends ComponentDefinition {
         cyclon = create(Cyclon.class);
         cpuTman = create(TManUpdated.class);
         memoryTman = create(TManUpdated.class);
-        rm = create(ResourceManager.class);
+        rm = create(ResourceManagerUpdated.class);
         bootstrap = create(BootstrapClient.class);
         chord = create(Chord.class);
 
@@ -80,6 +86,11 @@ public final class Peer extends ComponentDefinition {
                 rm.getNegative(TManSamplePort.class));
 
         connect(rmPort, rm.getNegative(RmPort.class));
+        
+        // connect chord to other components.
+        connect(network, chord.getNegative(Network.class));
+        connect(timer, chord.getNegative(Timer.class));
+        connect(failureDetector, chord.getNegative(FailureDetector.class));
 
         subscribe(handleInit, control);
         subscribe(handleJoinCompleted, cyclon.getPositive(CyclonPort.class));
@@ -95,8 +106,9 @@ public final class Peer extends ComponentDefinition {
             bootstrapRequestPeerCount = cyclonConfiguration.getBootstrapRequestPeerCount();
 
             utilizationManager = init.getUtilizationManagerComponent();
-            
             availableResources = init.getAvailableResources();
+            
+            chordConfig = init.getChordConfiguration();
 
             // Booting up the cyclon by sending event to its control port.
             trigger(new CyclonInit(cyclonConfiguration, availableResources), cyclon.getControl());
@@ -111,7 +123,7 @@ public final class Peer extends ComponentDefinition {
             trigger(new TManInit(self, init.getTManConfiguration(), availableResources, GradientEnum.MEMORY), memoryTman.getControl());
             
             //TODO: Chord Change. (Trigger the Chord Initiation Here.)
-            
+            trigger(new ChordInit(chordConfig.getLog2RingSize(), chordConfig.getSuccessorListLength(), chordConfig.getSuccessorStabilizationPeriod() , chordConfig.getFingerStabilizationPeriod() , chordConfig.getRpcTimeout()), chord.getControl());
         }
 
        
@@ -133,6 +145,8 @@ public final class Peer extends ComponentDefinition {
                         cyclon.getPositive(CyclonPort.class));
                 bootstrapped = true;
             }
+            //FIXME: The code for the chord initialization should go here because here I receive the entries from the bootstrapper.
+            // I can create the Chord Address here and based on the entries returned, then I can perform checking and trigger a create ring or join node request.
         }
     };
 

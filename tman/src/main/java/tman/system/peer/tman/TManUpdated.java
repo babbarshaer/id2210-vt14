@@ -158,8 +158,8 @@ public final class TManUpdated extends ComponentDefinition {
                     initiateGradientShuffle(1, randomCyclonPartners.get(0));
                 } 
                 else {
-                    refershFingerList(partnerDescriptors);
                     gradientCache.selectToKeepRandom(partnerDescriptors);
+                    refershFingerList(partnerDescriptors);
                 }
             }
         }
@@ -331,12 +331,14 @@ public final class TManUpdated extends ComponentDefinition {
      */
     private ArrayList<PeerDescriptor> getSimilarPeersInfo() {
 
-        ArrayList<PeerDescriptor> descriptorsToBeReturned = new ArrayList<PeerDescriptor>();
-
-        for (PeerDescriptor neighbor : gradientCache.getAll()) {
-            descriptorsToBeReturned.add(new PeerDescriptor(neighbor));
-        }
-        return descriptorsToBeReturned;
+//        ArrayList<PeerDescriptor> descriptorsToBeReturned = new ArrayList<PeerDescriptor>();
+//
+//        for (PeerDescriptor neighbor : gradientCache.getAll()) {
+//            descriptorsToBeReturned.add(new PeerDescriptor(neighbor));
+//        }
+//        return descriptorsToBeReturned;
+        
+        return gradientCache.getAll();
     }
 
 }

@@ -43,9 +43,9 @@ public class Snapshot {
     public static void report() {
         String str = new String();
         str += "current time: " + counter++ + "\n";
-        str += reportNetworkState();
-        str += reportDetails();
-        str += "###\n";
+//        str += reportNetworkState();
+//        str += reportDetails();
+//        str += "###\n";
 
         System.out.println(str);
         FileIO.append(str, FILENAME);

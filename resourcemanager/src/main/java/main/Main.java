@@ -2,6 +2,8 @@ package main;
 
 import simulator.core.DataCenterSimulationMain;
 import common.configuration.Configuration;
+import common.simulation.scenarios.BasicCPUBasedGradientScenario;
+import common.simulation.scenarios.BasicMemoryBasedGradientScenario;
 import common.simulation.scenarios.BasicScenario;
 import common.simulation.scenarios.CPUResourceGradientScenario;
 import common.simulation.scenarios.GradientScenario;
@@ -16,7 +18,7 @@ public class Main {
         long seed = System.currentTimeMillis();
         Configuration configuration = new Configuration(seed);
 
-        Scenario scenario = new CPUResourceGradientScenario();
+        Scenario scenario = new BasicCPUBasedGradientScenario();
         scenario.setSeed(seed);
         scenario.getScenario().simulate(DataCenterSimulationMain.class);
     }

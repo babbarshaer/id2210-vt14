@@ -21,7 +21,7 @@ public final class RmConfiguration {
         this.numPartitions = 10;
         this.maxNumRoutingEntries = 20;
         this.seed = seed;
-        this.requestTimeout = 5*1000;
+        this.requestTimeout = 2200;
     }
     
     public RmConfiguration(long period, int numPartitions, int maxNumRoutingEntries, long seed, long requestTimeout) {

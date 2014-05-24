@@ -37,8 +37,8 @@ public class Configuration {
         this.seed = seed;
         searchConfiguration = new RmConfiguration(seed);
         //Introduced view size and shuffle length for the similar view exchange.
-        tmanConfiguration = new TManConfiguration(seed, 30 , 0.8, 10,5, 500000);
-        cyclonConfiguration = new CyclonConfiguration(seed, 5, 10 , 30 , 500000,
+        tmanConfiguration = new TManConfiguration(seed, 30 , 0.8, 15,5, 500000);
+        cyclonConfiguration = new CyclonConfiguration(seed, 5, 15 , 30 , 500000,
                 (long) (Integer.MAX_VALUE - Integer.MIN_VALUE), 20);
 
         int log2RingSize = (int) (Math.ceil(Math.log(Integer.MAX_VALUE)/Math.log(2)));

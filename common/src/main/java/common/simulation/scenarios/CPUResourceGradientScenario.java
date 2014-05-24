@@ -230,7 +230,7 @@ public class CPUResourceGradientScenario extends Scenario {
             SimulationScenario.StochasticProcess bootstrapUtilizationManager = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(1, Operations.bootstrapUtilizationHandler, constant(4000));
+                    raise(1, Operations.bootstrapUtilizationHandler, constant(4500));
                 }
             };
 
