@@ -812,7 +812,7 @@ public final class ResourceManagerUpdated extends ComponentDefinition {
                 ArrayList<PeerDescriptor> favourableFingerBasedDescriptor = new ArrayList<PeerDescriptor>();
 
                 for (PeerDescriptor peer : cpuGradientFingerList) {
-                    if (peer.getFreeCpu() >= resourceToCompare || peer.getFreeCpu() >= resourceRequest.getNumCpus()) {
+                    if (peer.getFreeCpu() > resourceToCompare || peer.getFreeCpu() >= resourceRequest.getNumCpus()) {
                         favourableFingerBasedDescriptor.add(peer);
                     }
 

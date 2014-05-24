@@ -129,7 +129,8 @@ public class UtilizationManager extends ComponentDefinition {
      */
     private void computeTime() {
         long totalTime = finishTime - startTime;
-        trigger(new Time(totalTime, ninetyNinthIndexTime), utilizationManagerPort);
+        long ninetyNinthTime = ninetyNinthIndexTime - startTime;
+        trigger(new Time(totalTime, ninetyNinthTime), utilizationManagerPort);
     }
 
 }

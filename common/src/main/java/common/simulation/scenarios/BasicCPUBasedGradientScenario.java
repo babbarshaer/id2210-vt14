@@ -20,7 +20,7 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             SimulationScenario.StochasticProcess peerAdd0 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(1000));
-                    raise(5, Operations.peerJoin(),
+                    raise(10, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
                             constant(4), constant(4000)
                     );
@@ -30,7 +30,7 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             SimulationScenario.StochasticProcess peerAdd1 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(1000));
-                    raise(5, Operations.peerJoin(),
+                    raise(10, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
                             constant(6), constant(6000)
                     );
@@ -42,7 +42,7 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             SimulationScenario.StochasticProcess peerAdd2 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(1000));
-                    raise(5, Operations.peerJoin(),
+                    raise(10, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
                             constant(8), constant(8000)
                     );
@@ -52,7 +52,7 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             SimulationScenario.StochasticProcess peerAdd3 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(1000));
-                    raise(5, Operations.peerJoin(),
+                    raise(10, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
                             constant(10), constant(10000)
                     );
@@ -63,9 +63,9 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             SimulationScenario.StochasticProcess peerAdd4 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(1000));
-                    raise(15, Operations.peerJoin(),
+                    raise(10, Operations.peerJoin(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(16), constant(18000)
+                            constant(12), constant(12000)
                     );
                 }
             };
@@ -127,10 +127,10 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             SimulationScenario.StochasticProcess process1 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(250 , Operations.requestResources(),
+                    raise(4500 , Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
                             constant(3), constant(1),
-                            constant(100*11* 1) // 1 minute
+                            constant(100*20* 1) // 1 minute
                     );
                 }
             };
@@ -138,10 +138,10 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             SimulationScenario.StochasticProcess process2 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(250 , Operations.requestResources(),
+                    raise(4500 , Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
                             constant(5), constant(1),
-                            constant(100 * 11* 1) // 1 minute
+                            constant(100 * 20* 1) // 1 minute
                     );
                 }
             };
@@ -150,10 +150,10 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             SimulationScenario.StochasticProcess process3 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(2000, Operations.requestResources(),
+                    raise(1000, Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(7), constant(1),
-                            constant(100 * 3 * 1) // 1 minute
+                            constant(3), constant(1),
+                            constant(100 * 20 * 1) // 1 minute
                     );
                 }
             };
@@ -256,7 +256,7 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             SimulationScenario.StochasticProcess bootstrapUtilizationManager = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(1, Operations.bootstrapUtilizationHandler, constant(500));
+                    raise(1, Operations.bootstrapUtilizationHandler, constant(9000));
                 }
             };
 
@@ -272,6 +272,7 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             peerAdd1.startAfterTerminationOf(1000,peerAdd0);
             peerAdd2.startAfterTerminationOf(1000,peerAdd1);
             peerAdd3.startAfterTerminationOf(1000,peerAdd2);
+            peerAdd4.startAfterTerminationOf(1000, peerAdd3);
             
 //            peerAdd5.startAfterTerminationOf(1000,peerAdd4);
 //            peerAdd6.startAfterTerminationOf(100, peerAdd5);
@@ -283,10 +284,10 @@ public class BasicCPUBasedGradientScenario extends Scenario{
 
             // Peer Initialization and bootstrapping of the utilization manager complete.
             // Schedule the resources now.
-            process1.startAfterTerminationOf(3000, peerAdd0);
+            process1.startAfterTerminationOf(1000, peerAdd4);
             process2.startAtSameTimeWith(process1);
-//            process3.startAfterTerminationOf(3000, process2);
-            peerAdd4.startAfterStartOf(140000, process1);
+//            process3.startAtSameTimeWith(process2);
+//            peerAdd4.startAfterStartOf(140000, process1);
             resourceRequestInitiation.startAtSameTimeWith(process1);
 ////
 //            process4.startAfterTerminationOf(1000, process3);

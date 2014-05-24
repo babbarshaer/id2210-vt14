@@ -215,7 +215,7 @@ public final class DataCenterSimulator extends ComponentDefinition {
             double ninetyNinthTime = event.getNinetyNinthTime()/1000.0;
                     
             System.out.println("Total time Required for the Job Execution :" + sec +"(s)");
-            System.out.println("99% Time is : " + ninetyNinthTime);
+            System.out.println("99% Time is : " + ninetyNinthTime +"(s)");
             System.exit(1);
         } 
     };
