@@ -10,5 +10,7 @@ public class SimulatorPort extends PortType {{
 	positive(TerminateExperiment.class);
                       positive(BootstrapUtilizationHandler.class);
                       positive(ResourceRequestInitiation.class);
+                      positive(BatchRequest.class);
 	negative(TerminateExperiment.class);
+        
 }}

@@ -1,5 +1,6 @@
 package common.simulation.scenarios;
 
+import common.simulation.BatchRequest;
 import common.simulation.BootstrapUtilizationHandler;
 import common.simulation.PeerFail;
 import common.simulation.PeerJoin;
@@ -9,6 +10,7 @@ import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation1;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation3;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation4;
+import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation5;
 import se.sics.kompics.p2p.experiment.dsl.events.TerminateExperiment;
 
 @SuppressWarnings("serial")
@@ -48,7 +50,19 @@ public class Operations {
             }
         };
     }
-
+    
+    /**
+     * Operation to handle Batch Requests.
+     */
+    public static Operation5<BatchRequest, Long, Long, Long, Long,Long> batchRequest(){
+        return new Operation5<BatchRequest, Long, Long, Long, Long, Long>() {
+            @Override
+            public BatchRequest generate(Long batchRequestId, Long numberOfMachines, Long numOfCpus , Long memInMbs , Long timeToHoldResource) {
+                return new BatchRequest(batchRequestId, numberOfMachines, numOfCpus, memInMbs, timeToHoldResource);
+            }
+        };
+    }
+    
     // Write an operation with the number of tasks to calculate the timestamps.
     public static Operation<ResourceRequestInitiation> resourceRequestInitiation = new Operation<ResourceRequestInitiation>() {
 

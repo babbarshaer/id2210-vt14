@@ -2,6 +2,7 @@ package resourcemanager.system.peer.rm;
 
 import common.configuration.RmConfiguration;
 import common.peer.AvailableResources;
+import common.simulation.BatchRequest;
 import common.simulation.RequestResource;
 import cyclon.system.peer.cyclon.CyclonSample;
 import cyclon.system.peer.cyclon.CyclonSamplePort;
@@ -66,7 +67,6 @@ public final class ResourceManagerUpdated extends ComponentDefinition {
     private ArrayList<PeerDescriptor> cpuGradientNeighborsDescriptors = new ArrayList<PeerDescriptor>();
     private ArrayList<PeerDescriptor> memoryGradientNeighborsDescriptors = new ArrayList<PeerDescriptor>();
 
-
     private Address self;
     private RmConfiguration configuration;
     Random random;
@@ -109,6 +109,7 @@ public final class ResourceManagerUpdated extends ComponentDefinition {
         subscribe(jobCancellationHandler, networkPort);
         subscribe(removeRescheduleHandler, networkPort);
         subscribe(resourceRequestTimeout, timerPort);
+        subscribe(batchRequestHandler, indexPort);
     }
 
     Handler<RmInit> handleInit = new Handler<RmInit>() {
@@ -131,6 +132,19 @@ public final class ResourceManagerUpdated extends ComponentDefinition {
             trigger(rst, timerPort);
 
         }
+    };
+
+    /**
+     * Batch Request Functionality Addition.
+     */
+    Handler<BatchRequest> batchRequestHandler = new Handler<BatchRequest>() {
+
+        @Override
+        public void handle(BatchRequest event) {
+            // Handler for the batch request.
+            logger.info(" Batch Request Received With Id : " + event.getBatchRequestId());
+        }
+
     };
 
     //TODO: Functionality needs to be implemented here.
@@ -303,9 +317,8 @@ public final class ResourceManagerUpdated extends ComponentDefinition {
     }
 
     /**
-     * Keep rescheduling simple by only
-     * traversing up the tree and then finding the good node in the system
-     * hopefully.
+     * Keep rescheduling simple by only traversing up the tree and then finding
+     * the good node in the system hopefully.
      */
     Handler<RescheduleJob> rescheduleJobHandler = new Handler<RescheduleJob>() {
 
@@ -313,7 +326,7 @@ public final class ResourceManagerUpdated extends ComponentDefinition {
         public void handle(RescheduleJob rescheduleJobEvent) {
 
             RequestResource event = rescheduleJobEvent.getResourceRequest();
-            
+
             // STEP1: Check if current node has available resources to satisfy the request.
             if (availableResources.allocate(event.getNumCpus(), event.getMemoryInMbs())) {
 
@@ -336,7 +349,7 @@ public final class ResourceManagerUpdated extends ComponentDefinition {
             // Get the gradient neighbors suitable for scheduling, that are closer to this node.
             PeerDescriptor descriptor = getNeighborForReschedulingUpdated(event, currentNeighborsInfo);
             if (descriptor != null) {
-                
+
                 rescheduleJobEvent.setDestination(descriptor.getAddress());
                 rescheduleJobEvent.reduceTTL();
                 trigger(rescheduleJobEvent, networkPort);
@@ -361,9 +374,9 @@ public final class ResourceManagerUpdated extends ComponentDefinition {
         schedulerJobList.add(applicationJobDetail);
 
 //        // Create a timeout event to check the progress of the task.
-          ScheduleTimeout st = generateRequestResourceTimeout(event);
-          UUID timeoutId = st.getTimeoutEvent().getTimeoutId();
-          
+        ScheduleTimeout st = generateRequestResourceTimeout(event);
+        UUID timeoutId = st.getTimeoutEvent().getTimeoutId();
+
         requestIdToTimeoutIdMap.put(event.getId(), timeoutId);
 
         // Trigger the timeout if everything looks good.
@@ -715,14 +728,16 @@ public final class ResourceManagerUpdated extends ComponentDefinition {
             if (!partnerDescriptors.isEmpty()) {
                 for (RequestResource requestResource : bufferedRequestsAtScheduler) {
 
-                    if (checkAndScheduleTheApplicationJob(requestResource, partnerDescriptors)) 
+                    if (checkAndScheduleTheApplicationJob(requestResource, partnerDescriptors)) {
                         eventsTobeRemoved.add(requestResource);
+                    }
                 }
             }
         }
-        for (RequestResource event : eventsTobeRemoved)
+        for (RequestResource event : eventsTobeRemoved) {
             bufferedRequestsAtScheduler.remove(event);
-        
+        }
+
     }
 
     /**
@@ -871,11 +886,9 @@ public final class ResourceManagerUpdated extends ComponentDefinition {
             // Fetch a random neighbor based on the gradient also.
             if (gradientBasedDescriptor == null) {
                 return fingerBasedDescriptor;
-            } 
-            else if (fingerBasedDescriptor == null) {
+            } else if (fingerBasedDescriptor == null) {
                 return gradientBasedDescriptor;
-            } 
-            else {
+            } else {
                 // Return the closest neighbor of the above two fetched.
                 if ((fingerBasedDescriptor.getFreeMemory() > resourceRequest.getMemoryInMbs() && resourceRequest.getMemoryInMbs() > gradientBasedDescriptor.getFreeMemory()) || Math.abs(fingerBasedDescriptor.getFreeMemory() - resourceRequest.getMemoryInMbs()) < Math.abs(gradientBasedDescriptor.getFreeMemory() - resourceRequest.getMemoryInMbs())) {
                     return fingerBasedDescriptor;
