@@ -127,9 +127,9 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             SimulationScenario.StochasticProcess process1 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(4500 , Operations.requestResources(),
+                    raise(500 , Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(3), constant(1),
+                            constant(5), constant(1),
                             constant(100*20* 1) // 1 minute
                     );
                 }
@@ -138,7 +138,7 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             SimulationScenario.StochasticProcess process2 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(4500 , Operations.requestResources(),
+                    raise(2000 , Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
                             constant(5), constant(1),
                             constant(100 * 20* 1) // 1 minute
@@ -256,7 +256,7 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             SimulationScenario.StochasticProcess bootstrapUtilizationManager = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(1, Operations.bootstrapUtilizationHandler, constant(9000));
+                    raise(1, Operations.bootstrapUtilizationHandler, constant(1000));
                 }
             };
 
@@ -285,7 +285,7 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             // Peer Initialization and bootstrapping of the utilization manager complete.
             // Schedule the resources now.
             process1.startAfterTerminationOf(1000, peerAdd4);
-            process2.startAtSameTimeWith(process1);
+//            process2.startAtSameTimeWith(process1);
 //            process3.startAtSameTimeWith(process2);
 //            peerAdd4.startAfterStartOf(140000, process1);
             resourceRequestInitiation.startAtSameTimeWith(process1);

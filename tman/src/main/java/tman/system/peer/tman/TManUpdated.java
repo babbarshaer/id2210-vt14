@@ -111,7 +111,7 @@ public final class TManUpdated extends ComponentDefinition {
             Snapshot.updateTManPartners(self, getSimilarPeers());
             // Increment the age and remove the entry with oldest age to keep rotating.
 //            gradientCache.incrementDescriptorAges();
-            Address randomPeer = gradientCache.getSoftMaxAddressForGradient();
+            Address randomPeer = gradientCache.selectPeerToShuffleWith();
             // Only if you find a peer to shuffle the view with you progress.
             if (randomPeer != null) {
 
@@ -123,6 +123,8 @@ public final class TManUpdated extends ComponentDefinition {
                 logger.info("Random Peer To Talk to is null .....");
 ////                logger.info("Cyclon Sample Length : " + cyclonPeerDescriptors.size());
             }
+//            if(gradientEnum == GradientEnum.CPU)
+//                printNodeViewResourceInfo();
         }
     };
 
@@ -136,7 +138,7 @@ public final class TManUpdated extends ComponentDefinition {
     private void printNodeViewResourceInfo() {
         List<PeerDescriptor> partnerDescriptors = gradientCache.getAll();
         for (PeerDescriptor partner : partnerDescriptors) {
-            logger.info("Node: " + self + " ~~ Self Cpu:  " + availableResources.getNumFreeCpus() + " ~~ PeerAddress: " + " ~~ Cpu: " + partner.getFreeCpu() + " ~~ Memory: " + partner.getFreeMemory());
+            logger.info("Node: " + self.getId() + " ~~ Self Cpu:  " + availableResources.getNumFreeCpus() + " ~~ PeerAddress: " + " ~~ Cpu: " + partner.getFreeCpu() + " ~~ Memory: " + partner.getFreeMemory() +  " ~~ View Size : " + partnerDescriptors.size());
         }
     }
 
@@ -175,7 +177,6 @@ public final class TManUpdated extends ComponentDefinition {
         ComparatorByResource resourceBasedComparator = new ComparatorByResource(gradientEnum);
         Collections.sort(copyPeerDescriptors, resourceBasedComparator);
 
-        // Based on the length of the finger list, shorten the resultant finger list.
         // For now lets use the shuffle length as the basis for the finger list length.
         if (copyPeerDescriptors.size() <= shuffleLength) {
             fingerList = copyPeerDescriptors;
@@ -191,6 +192,7 @@ public final class TManUpdated extends ComponentDefinition {
      */
     private void initiateGradientShuffle(int shuffleLength, Address peerAddress) {
 
+        gradientCache.incrementDescriptorAges();
         ArrayList<PeerDescriptor> partnerDescriptors = gradientCache.selectToSendAtActive(shuffleLength - 1, peerAddress);
         partnerDescriptors.add(new PeerDescriptor(self, availableResources.getNumFreeCpus(), availableResources.getFreeMemInMbs()));
 

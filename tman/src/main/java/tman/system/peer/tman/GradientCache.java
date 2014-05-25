@@ -46,6 +46,7 @@ public class GradientCache {
     private double temperature;
     private Random r;
     private GradientEnum gradientEnum;
+    
 
     public GradientCache(int size, Address self, AvailableResources availableResources, double temperature, Random r, GradientEnum gradientEnum) {
         super();
@@ -159,7 +160,8 @@ public class GradientCache {
         Collections.shuffle(entries);
         
         // Now once the entries are merged, sort them based on the utility.
-        arrangeNodesInPreferenceOrder();
+//        arrangeNodesInPreferenceOrder();
+        Collections.sort(entries, new ComparatorByViewEntry(gradientEnum, availableResources.getNumFreeCpus() , availableResources.getFreeMemInMbs()));
         //Check for any king of discrepancy.
         checkSize();
         //Now remove the entries based on the top ranking selection policy.
@@ -396,8 +398,11 @@ public class GradientCache {
             // add a new entry.
             addEntry(new ViewEntry(descriptor));
 
+            Collections.shuffle(entries);
             // Now once the entries are merged, sort them based on the utility.
-            arrangeNodesInPreferenceOrder();
+//            arrangeNodesInPreferenceOrder();
+            Collections.sort(entries, new ComparatorByViewEntry(gradientEnum, availableResources.getNumFreeCpus() , availableResources.getFreeMemInMbs()));
+            
             //Check for any king of discrepancy.
             checkSize();
             //Now remove the entries based on the top ranking selection policy.

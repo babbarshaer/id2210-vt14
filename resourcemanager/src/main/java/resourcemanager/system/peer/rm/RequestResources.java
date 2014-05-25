@@ -95,4 +95,44 @@ public class RequestResources  {
             return destination;
         }
     }
+    
+    public static class BatchProbeRequest extends Message{
+        
+        private static final long serialVersionUID = 1L;
+        private final long batchRequestId;
+        
+        public BatchProbeRequest(Address source, Address destination , long batchRequestId){
+            super(source,destination);
+            this.batchRequestId = batchRequestId;
+        }
+        
+        public long getBatchRequestId(){
+            return this.batchRequestId;
+        }
+        
+    }
+    
+    public static class BatchProbeResponse extends Message{
+        
+        private static final long serialVersionUID = 1L;
+        private final long batchRequestId;
+        private final long queueLength;
+        
+        public BatchProbeResponse(Address source, Address destination , long batchRequestId , long queueLength){
+            super(source,destination);
+            this.batchRequestId = batchRequestId;
+            this.queueLength = queueLength;
+        }
+        
+        public long getBatchRequestId(){
+            return this.batchRequestId;
+        }
+        
+        public long getQueueLength(){
+            return this.queueLength;
+        }
+        
+    }
+    
+    
 }

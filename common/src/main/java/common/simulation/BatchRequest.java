@@ -60,6 +60,29 @@ public class BatchRequest extends Event{
     public long getTimeToHoldResource(){
         return timeToHoldResource;
     }
-    
+
+    @Override
+    public boolean equals(Object obj) {
+        
+        if(obj instanceof BatchRequest){
+            BatchRequest other = (BatchRequest)obj;
+            if(this.batchRequestId == other.batchRequestId){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        hash = 83 * hash + (int) (this.batchRequestId ^ (this.batchRequestId >>> 32));
+        return hash;
+    }
+
+    @Override
+    public String toString() {
+        return "Batch Request Id: " + batchRequestId +" ~~ number of machines: " + numberOfMachines + " ~~ number of cpu :" + freeCpu +" ~~ memory:  " + freeMemory +" ~~ time to hold resource : " + timeToHoldResource;
+    }
     
 }

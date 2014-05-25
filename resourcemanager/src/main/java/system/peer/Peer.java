@@ -60,7 +60,7 @@ public final class Peer extends ComponentDefinition {
         cyclon = create(Cyclon.class);
         cpuTman = create(TManUpdated.class);
         memoryTman = create(TManUpdated.class);
-        rm = create(ResourceManagerUpdated.class);
+        rm = create(ResourceManager.class);
         bootstrap = create(BootstrapClient.class);
         chord = create(Chord.class);
 

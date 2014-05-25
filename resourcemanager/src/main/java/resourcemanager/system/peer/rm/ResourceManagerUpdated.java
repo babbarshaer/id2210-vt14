@@ -655,7 +655,7 @@ public final class ResourceManagerUpdated extends ComponentDefinition {
     private List<Integer> getRandomIndexArray(int neighboursSize) {
 
         List<Integer> randomIndexArray = new ArrayList<Integer>();
-        Random randomVariable = new Random();
+//        Random randomVariable = new Random();
 
         if (neighboursSize <= probeRatio) {
             // Add all the values in the random index array.
@@ -666,7 +666,7 @@ public final class ResourceManagerUpdated extends ComponentDefinition {
             while (randomIndexArray.size() < probeRatio) {
                 boolean duplicate = false;
                 //Iterate over the index array.
-                int nextInt = randomVariable.nextInt(neighboursSize);
+                int nextInt = random.nextInt(neighboursSize);
                 for (Integer i : randomIndexArray) {
                     if (i == nextInt) {
                         duplicate = true;
