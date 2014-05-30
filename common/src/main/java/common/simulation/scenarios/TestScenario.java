@@ -61,10 +61,10 @@ public class TestScenario extends Scenario{
             SimulationScenario.StochasticProcess process1 = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(400, Operations.requestResources(),
+                    raise(1, Operations.batchRequest(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(2), constant(6000),
-                            constant(1000 * 6 * 1) // 1 minute
+                            constant(2), constant(3), constant(3000),
+                            constant(100 * 6 * 1) // 1 minute
                     );
                 }
             };
@@ -148,7 +148,7 @@ public class TestScenario extends Scenario{
             SimulationScenario.StochasticProcess bootstrapUtilizationManager = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(1, Operations.bootstrapUtilizationHandler,constant(1));
+                    raise(1, Operations.bootstrapUtilizationHandler,constant(10));
                 }
             };
             
@@ -163,11 +163,12 @@ public class TestScenario extends Scenario{
             
             //Simple Overlay adjustment Test.
             peerAdd0.start();
-            peerAdd1.startAfterTerminationOf(2000,peerAdd0);
+            peerAdd1.startAfterTerminationOf(1000,peerAdd0);
+            peerAdd2.startAfterTerminationOf(1000, peerAdd1);
             bootstrapUtilizationManager.startAtSameTimeWith(peerAdd0);
 //            bootstrapUtilizationManager.startAfterTerminationOf(100, peerAdd1);
-//            process1.startAfterTerminationOf( 1000 , peerAdd1);
-//            resourceRequestInitiation.startAtSameTimeWith(process1);
+            process1.startAfterTerminationOf( 3000 , peerAdd1);
+            resourceRequestInitiation.startAtSameTimeWith(process1);
 //            process2.startAtSameTimeWith(process1);
 //            process3.startAfterTerminationOf(1000, peerAdd1);
 //            peerAdd2.startAfterTerminationOf( 800, peerAdd1);

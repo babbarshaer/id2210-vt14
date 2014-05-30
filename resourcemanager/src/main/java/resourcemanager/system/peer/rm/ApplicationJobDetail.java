@@ -19,15 +19,17 @@ public class ApplicationJobDetail {
     private final long requestId;
     private final int timeToHoldResource;
     private JobStatusEnum jobStatus;
+    private long startTime;
 
-    public ApplicationJobDetail(int cpu, int memory, long requestId, int timeToHoldRequest) {
+    public ApplicationJobDetail(int cpu, int memory, long requestId, int timeToHoldRequest , long startTime) {
 
         this.cpu = cpu;
         this.memory = memory;
         this.requestId = requestId;
         this.timeToHoldResource = timeToHoldRequest;
         this.jobStatus = JobStatusEnum.REQUESTED;
-
+        this.startTime = startTime;
+                 
     }
 
     // Convenience Constructor.
@@ -38,6 +40,7 @@ public class ApplicationJobDetail {
         this.requestId = requestResource.getId();
         this.timeToHoldResource = requestResource.getTimeToHoldResource();
         this.jobStatus = JobStatusEnum.REQUESTED;
+        this.startTime  = System.currentTimeMillis();
     }
 
     public ApplicationJobDetail(long requestId) {
@@ -117,4 +120,9 @@ public class ApplicationJobDetail {
         return printString;
     }
 
+    
+    public long calculateTime(long finalTime){
+        return finalTime - startTime;
+    }
+    
 }

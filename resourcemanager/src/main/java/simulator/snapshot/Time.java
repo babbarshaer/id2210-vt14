@@ -16,10 +16,12 @@ public class Time extends Event{
     
     private final long totalTime;
     private final long ninetyNinthTime;
+    private final long averageTime;
     
-    public Time(long totalTime , long ninetyNinthTime){
+    public Time(long totalTime , long ninetyNinthTime , long averageTime){
         this.totalTime = totalTime;
         this.ninetyNinthTime = ninetyNinthTime;
+        this.averageTime = averageTime;
     }
     
     
@@ -29,5 +31,8 @@ public class Time extends Event{
  
     public long getNinetyNinthTime(){
         return this.ninetyNinthTime;
+    }
+    public long getAverageTime(){
+        return this.averageTime;
     }
 }

@@ -9,6 +9,8 @@ import common.simulation.BootstrapUtilizationHandler;
 import common.simulation.ResourceRequestInitiation;
 import common.simulation.SimulatorPort;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,14 +32,14 @@ import se.sics.kompics.timer.Timer;
  */
 public class UtilizationManager extends ComponentDefinition {
 
-    static List<Long> requestIdList = new ArrayList<Long>();
+    private List<Long> requestTimeTakenList = new ArrayList<Long>();
     long numberOfJobsScheduled;
     Positive<SimulatorPort> p2pSimulatorPort = requires(SimulatorPort.class);
     long startTime;
     long finishTime;
     long ninetyNinthIndex;
     long ninetyNinthIndexTime;
-
+    boolean modified = true;
     int number = 0;
 
     private final Logger logger = LoggerFactory.getLogger(UtilizationManager.class);
@@ -52,7 +54,6 @@ public class UtilizationManager extends ComponentDefinition {
         subscribe(requestInitiationHandler, p2pSimulatorPort);
         subscribe(requestCompletionHandler, utilizationManagerPort);
 //        subscribe(updateTimeoutHandler, timerport);
-
 
     }
 
@@ -69,7 +70,7 @@ public class UtilizationManager extends ComponentDefinition {
 
         @Override
         public void handle(UtilizationCalculationTimeout event) {
-            logger.info(" Number of Completed Requests So Far ..... " + requestIdList.size());
+            logger.info(" Number of Completed Requests So Far ..... " + requestTimeTakenList.size());
         }
 
     };
@@ -119,6 +120,8 @@ public class UtilizationManager extends ComponentDefinition {
                 computeTime();
             }
 
+            requestTimeTakenList.add(event.getTimeTaken());
+
             logger.info("Jobs Completed: " + number);
         }
     };
@@ -129,8 +132,51 @@ public class UtilizationManager extends ComponentDefinition {
      */
     private void computeTime() {
         long totalTime = finishTime - startTime;
-        long ninetyNinthTime = ninetyNinthIndexTime - startTime;
-        trigger(new Time(totalTime, ninetyNinthTime), utilizationManagerPort);
+        
+        long ninetyNinthTime;
+       long averageTime;
+       
+        if(modified){
+            
+            long totalRequestTime =0;
+            
+            if(ninetyNinthIndex == 0){
+                System.out.println("Cannot calculate 99th time for a single request ... ");
+                System.exit(1);
+            }
+            
+            Collections.sort(requestTimeTakenList, comparatorByTimeTaken);
+            ninetyNinthTime = requestTimeTakenList.get((int) (ninetyNinthIndex-1));
+            
+            for(Long time : requestTimeTakenList){
+                totalRequestTime += time;
+            }
+            
+            averageTime = totalRequestTime/numberOfJobsScheduled;
+        }
+        
+        else{
+            ninetyNinthTime = ninetyNinthIndexTime - startTime;
+            averageTime =0;
+        }
+        
+        trigger(new Time(totalTime, ninetyNinthTime, averageTime), utilizationManagerPort);
     }
+
+    private final Comparator<Long> comparatorByTimeTaken = new Comparator<Long>() {
+
+        @Override
+        public int compare(Long l1, Long l2) {
+
+            if (l1 - l2 < 0) {
+                return -1;
+            } else if (l2 - l1 < 0) {
+                return 1;
+            } else {
+                return 0;
+            }
+
+        }
+    };
 
 }

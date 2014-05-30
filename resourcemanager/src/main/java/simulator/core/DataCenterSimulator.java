@@ -231,10 +231,11 @@ public final class DataCenterSimulator extends ComponentDefinition {
         public void handle(Time event) {
             
             double sec = event.getTotalTime()/1000.0;
-            double ninetyNinthTime = event.getNinetyNinthTime()/1000.0;
+            double ninetyNinthTime = event.getNinetyNinthTime();
                     
             System.out.println("Total time Required for the Job Execution :" + sec +"(s)");
-            System.out.println("99% Time is : " + ninetyNinthTime +"(s)");
+            System.out.println("99% Time is : " + ninetyNinthTime +"(ms)");
+            System.out.println("Average Time is: " + event.getAverageTime() +"(ms)");
             System.exit(1);
         } 
     };

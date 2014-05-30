@@ -24,6 +24,8 @@ public class WorkerJobDetail {
     private JobStatusEnum jobStatus;
     private final List<Address> workers;
     private final UUID resourceRequestUUID;
+    private final boolean isBatchRequest;
+    private final long withinBatchRequestId;
     
     
     public WorkerJobDetail(int cpu, int memory, long requestId, int timeToHoldResource, Address schedulerAddress , List<Address> workers, UUID resourceRequestUUID){
@@ -35,8 +37,25 @@ public class WorkerJobDetail {
         this.jobStatus = JobStatusEnum.QUEUED;
         this.workers = workers;
         this.resourceRequestUUID = resourceRequestUUID;
+        this.isBatchRequest = false;
+        this.withinBatchRequestId = -1;
     }
 
+    
+    public WorkerJobDetail(int cpu, int memory, long requestId, int timeToHoldResource, Address schedulerAddress , List<Address> workers, UUID resourceRequestUUID , boolean isBatchRequest , long withinBatchRequestId){
+        this.cpu = cpu;
+        this.memory = memory;
+        this.requestId = requestId;
+        this.timeToHoldResource = timeToHoldResource;
+        this.schedulerAddress = schedulerAddress;
+        this.jobStatus = JobStatusEnum.QUEUED;
+        this.workers = workers;
+        this.resourceRequestUUID = resourceRequestUUID;
+        this.isBatchRequest = isBatchRequest;
+        this.withinBatchRequestId = withinBatchRequestId;
+    }
+    
+    
     /**
      * @return the cpu
      */
@@ -92,26 +111,37 @@ public class WorkerJobDetail {
         return this.resourceRequestUUID;
     }
     
+    public boolean isBatchRequest(){
+        return this.isBatchRequest;
+    }
+    
+    public long withinBatchRequestId(){
+        return this.withinBatchRequestId;
+    }
+    
     
      @Override
     public boolean equals(Object obj) {
         if (obj instanceof WorkerJobDetail) {
 
             WorkerJobDetail otherJobDetail = (WorkerJobDetail) obj;
-            if (this.requestId == otherJobDetail.requestId) {
+            if (this.requestId == otherJobDetail.requestId && this.withinBatchRequestId == otherJobDetail.withinBatchRequestId) {
                 return true;
             }
         }
         return false;
     }
 
-    
     @Override
     public int hashCode() {
-        int hash = 7;
-        hash = 37 * hash + (int) (this.requestId ^ (this.requestId >>> 32));
+        int hash = 5;
+        hash = 79 * hash + (int) (this.requestId ^ (this.requestId >>> 32));
+        hash = 79 * hash + (int) (this.withinBatchRequestId ^ (this.withinBatchRequestId >>> 32));
         return hash;
     }
+
+    
+    
     
     public  List<Address> getWorkers(){
         return this.workers;

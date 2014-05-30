@@ -16,12 +16,24 @@ public class CancelTask extends Message {
 
     private static final long serialVersionUID = 1L;
     private final long requestId;
+    private final boolean isBatchRequest;
+    private final long withinbatchRequestId;
     
     
     public CancelTask(Address source, Address destination , long requestId) {
         super(source, destination);
         this.requestId = requestId;
+        this.isBatchRequest  = false;
+        this.withinbatchRequestId  = -1;
     }
+    
+    public CancelTask(Address source, Address destination , long requestId, boolean isBatchRequest , long withinBatchRequestId){
+        super(source, destination);
+        this.requestId = requestId;
+        this.isBatchRequest  = isBatchRequest;
+        this.withinbatchRequestId  = withinBatchRequestId;
+    }
+    
 
     /**
      * 
@@ -30,5 +42,22 @@ public class CancelTask extends Message {
     public long getRequestId(){
         return this.requestId;
     }
+    
+    /**
+     * 
+     * @return isBatchRequestId.
+     */
+    public boolean isBatchRequest(){
+        return this.isBatchRequest;
+    }
+    
+    /**
+     * 
+     * @return withinBatchRequestId.
+     */
+    public long withinBatchRequestId(){
+        return this.withinbatchRequestId;
+    }
+    
     
 }

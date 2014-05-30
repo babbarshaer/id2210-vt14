@@ -25,7 +25,7 @@ import common.configuration.CyclonConfiguration;
 import common.peer.AvailableResources;
 import common.peer.PeerDescriptor;
 import cyclon.system.peer.cyclon.*;
-import resourcemanager.system.peer.rm.ResourceManagerUpdated;
+import resourcemanager.system.peer.rm.ResourceManagerBackup;
 import se.sics.kompics.p2p.fd.FailureDetector;
 import se.sics.kompics.p2p.overlay.chord.Chord;
 import se.sics.kompics.p2p.overlay.chord.ChordConfiguration;

@@ -14,7 +14,7 @@ public class Snapshot {
 
 
     public static void init(int numOfStripes) {
-        FileIO.write("", FILENAME);
+//        FileIO.write("", FILENAME);
     }
 
 

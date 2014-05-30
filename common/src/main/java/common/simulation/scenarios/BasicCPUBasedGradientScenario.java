@@ -126,10 +126,10 @@ public class BasicCPUBasedGradientScenario extends Scenario{
 
             SimulationScenario.StochasticProcess process1 = new SimulationScenario.StochasticProcess() {
                 {
-                    eventInterArrivalTime(constant(100));
-                    raise(500 , Operations.requestResources(),
+                    eventInterArrivalTime(constant(130));
+                    raise(900 , Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
-                            constant(5), constant(1),
+                            constant(7), constant(1),
                             constant(100*20* 1) // 1 minute
                     );
                 }
@@ -137,7 +137,7 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             
             SimulationScenario.StochasticProcess process2 = new SimulationScenario.StochasticProcess() {
                 {
-                    eventInterArrivalTime(constant(100));
+                    eventInterArrivalTime(constant(130));
                     raise(2000 , Operations.requestResources(),
                             uniform(0, Integer.MAX_VALUE),
                             constant(5), constant(1),
@@ -256,7 +256,7 @@ public class BasicCPUBasedGradientScenario extends Scenario{
             SimulationScenario.StochasticProcess bootstrapUtilizationManager = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(1, Operations.bootstrapUtilizationHandler, constant(1000));
+                    raise(1, Operations.bootstrapUtilizationHandler, constant(900));
                 }
             };
 

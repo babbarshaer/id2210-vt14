@@ -35,9 +35,9 @@ public class ComparatorByResource implements Comparator<PeerDescriptor> {
         } else {
 
             if (o1.getFreeMemory() > o2.getFreeMemory()) {
-                return 1;
-            } else if (o2.getFreeMemory() > o1.getFreeMemory()) {
                 return -1;
+            } else if (o2.getFreeMemory() > o1.getFreeMemory()) {
+                return 1;
             } else {
                 return 0;
             }

@@ -3,6 +3,7 @@ package resourcemanager.system.peer.rm;
 import common.configuration.RmConfiguration;
 import common.peer.AvailableResources;
 import common.simulation.BatchRequest;
+import common.simulation.BatchRequestResource;
 import common.simulation.RequestResource;
 import cyclon.system.peer.cyclon.CyclonSample;
 import cyclon.system.peer.cyclon.CyclonSamplePort;
@@ -57,7 +58,7 @@ public final class ResourceManager extends ComponentDefinition {
     ArrayList<Address> randomNeighbours = new ArrayList<Address>();
     ArrayList<PeerDescriptor> randomNeighborsDescriptors = new ArrayList<PeerDescriptor>();
 
-    boolean useGradient = false;
+    boolean useGradient = true;
     static final double TEMPERATURE = 0.7;
 
     Positive<UtilizationPort> utilizationPort = requires(UtilizationPort.class);
@@ -94,7 +95,9 @@ public final class ResourceManager extends ComponentDefinition {
 
     private Set<ApplicationJobDetail> schedulerJobList;
     private LinkedList<WorkerJobDetail> workerJobList;
-    private Set<ApplicationBatchRequestDetail> schedulerBatchJobSet;
+
+    private Map<BatchRequest, List<Long>> schedulerBatchRequestMap = new HashMap<BatchRequest, List<Long>>();
+    private Set<BatchRequestResource> batchResourceRequestSet = new HashSet<BatchRequestResource>();
 
     public ResourceManager() {
 
@@ -130,9 +133,9 @@ public final class ResourceManager extends ComponentDefinition {
             bufferedRescheduledJobs = new ArrayList<RescheduleJob>();
             requestTimeout = configuration.getRequestTimeout();
             requestIdToTimeoutIdMap = new HashMap<Long, UUID>();
-            schedulerBatchJobSet = new HashSet<ApplicationBatchRequestDetail>();
+//            schedulerBatchJobSet = new HashSet<ApplicationBatchRequestDetail>();
 
-            SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(1000, 3000);
+            SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(100, 40);
             rst.setTimeoutEvent(new UpdateTimeout(rst));
             trigger(rst, timerPort);
 
@@ -148,44 +151,50 @@ public final class ResourceManager extends ComponentDefinition {
         public void handle(BatchRequest event) {
             // Handler for the batch request.
             logger.info(" Batch Request Received With Id : " + event.getBatchRequestId());
-            handlebatchSampling(new ApplicationBatchRequestDetail(event));
+            int numberOfMachines = (int) event.getNumberOfMachines();
+
+            for (int withinBatchRequestId = 0; withinBatchRequestId < numberOfMachines; withinBatchRequestId++) {
+                BatchRequestResource batchRequestResource = new BatchRequestResource(event.getBatchRequestId(), event.getFreeCpu(), event.getFreeMemory(), event.getTimeToHoldResource(), withinBatchRequestId);
+                if (!handleWithinBatchRequestScheduling(batchRequestResource)) {
+                    batchResourceRequestSet.add(batchRequestResource);
+                } else {
+                    logger.info(" Scheduled request number : " + withinBatchRequestId + " within a batch request with id: " + event.getBatchRequestId());
+                }
+            }
+
+            // Now save an entry for the batch request in the set, with empty list.
+            List<Long> withinBatchRequestIdResponse = new ArrayList<Long>();
+            schedulerBatchRequestMap.put(event, withinBatchRequestIdResponse);
         }
     };
 
     /**
-     * Handle basic Batch Sampling.
+     * Handle the batch request scheduling.
      *
-     * @param schedulerBatchJob
+     * @param event
+     * @return
      */
-    private void handlebatchSampling(ApplicationBatchRequestDetail schedulerBatchJob) {
+    public boolean handleWithinBatchRequestScheduling(BatchRequestResource event) {
 
-        long numberOfMachines = schedulerBatchJob.getBatchRequest().getNumberOfMachines();
-        int numberofProbes = (int) (numberOfMachines * batchProbeRatio);
-        List<Integer> indexArray = getRandomIndexArray(numberofProbes);
+        List<PeerDescriptor> randomNeighborDescriptors = getRandomNeighborsDescriptors();
+        List<Integer> randomIndexArray = getRandomIndexArray(randomNeighborDescriptors.size(), batchProbeRatio);
 
-        if (indexArray.isEmpty()) {
-            logger.info(" For Now Ignoring the request ..... ");
-            return;
+        if (randomIndexArray.isEmpty()) {
+            return false;
         }
 
-        schedulerBatchJob.setNumberOfProbesSent(indexArray.size());
-        for (Integer i : indexArray) {
-            RequestResources.BatchProbeRequest probeRequest = new RequestResources.BatchProbeRequest(self, randomNeighbours.get(i), schedulerBatchJob.getBatchRequest().getBatchRequestId());
-            trigger(probeRequest, networkPort);
+        List<Address> randomNeighborSelected = new ArrayList<Address>();
+        for (Integer j : randomIndexArray) {
+            randomNeighborSelected.add(randomNeighborDescriptors.get(j).getAddress());
         }
 
-        logger.info(" Batch Job Request Successfully Registered ... ");
-        schedulerBatchJobSet.add(schedulerBatchJob);
+        for (Integer index : randomIndexArray) {
+            RequestResources.Request workerBatchRequest = new RequestResources.Request(self, randomNeighborDescriptors.get(index).getAddress(), (int) event.getFreeCpu(), (int) event.getFreeMemory(), event.getBatchRequestId(), (int) event.getTimeToHoldResource(), randomNeighborSelected, null, true, (int) event.getWithInBatchRequestId());
+            trigger(workerBatchRequest, networkPort);
+        }
+
+        return true;
     }
-
-    Handler<RequestResources.BatchProbeRequest> batchProbeRequestHandler = new Handler<RequestResources.BatchProbeRequest>() {
-
-        @Override
-        public void handle(RequestResources.BatchProbeRequest event) {
-
-        }
-
-    };
 
     //TODO: Functionality needs to be implemented here.
     Handler<UpdateTimeout> handleUpdateTimeout = new Handler<UpdateTimeout>() {
@@ -194,10 +203,28 @@ public final class ResourceManager extends ComponentDefinition {
 
             checkForBufferedJobsAtScheduler();
             checkForBufferedReschduledJobs();
+            checkForBufferedBatchJobs();
 
-//            availableResources.allocate(1, 1000);
         }
     };
+
+    /**
+     * Retry allocating the buffered jobs at the scheduler.
+     */
+    private void checkForBufferedBatchJobs() {
+
+        Set<BatchRequestResource> requestsToBeRemoved = new HashSet<BatchRequestResource>();
+        for (BatchRequestResource event : batchResourceRequestSet) {
+            if (handleWithinBatchRequestScheduling(event)) {
+                requestsToBeRemoved.add(event);
+            }
+        }
+
+        for (BatchRequestResource requestEvent : requestsToBeRemoved) {
+            batchResourceRequestSet.remove(requestEvent);
+        }
+
+    }
 
     /**
      * Simply check for the buffered jobs at the scheduler.
@@ -279,10 +306,11 @@ public final class ResourceManager extends ComponentDefinition {
         @Override
         public void handle(RequestResources.Request event) {
 
-            WorkerJobDetail peerJobDetail = new WorkerJobDetail(event.getNumCpus(), event.getAmountMemInMb(), event.getRequestId(), event.getTimeToHoldResource(), event.getSource(), event.getPeers(), event.getResourceRequestUUID());
+//            logger.info(" New request Received with id : " +  event.getRequestId() +" and within BatchRequest Id : " + event.withinBatchRequestId() + " at worker with id: " + self.getId());
+            WorkerJobDetail peerJobDetail = new WorkerJobDetail(event.getNumCpus(), event.getAmountMemInMb(), event.getRequestId(), event.getTimeToHoldResource(), event.getSource(), event.getPeers(), event.getResourceRequestUUID(), event.isBatchRequest(), event.withinBatchRequestId());
             if (workerJobList.contains(peerJobDetail)) {
                 return;
-            }
+            };
             workerJobList.add(peerJobDetail);
             checkResourcesAndExecute();
 
@@ -319,7 +347,7 @@ public final class ResourceManager extends ComponentDefinition {
     private boolean checkAndScheduleTheApplicationJob(RequestResource event, List<PeerDescriptor> neighbors) {
 
         List<Address> randomNeighboursSelected = new ArrayList<Address>();
-        List<Integer> randomIndexArray = getRandomIndexArray(neighbors.size());
+        List<Integer> randomIndexArray = getRandomIndexArray(neighbors.size(), probeRatio);
 
         for (Integer i : randomIndexArray) {
             randomNeighboursSelected.add(neighbors.get(i).getAddress());
@@ -345,13 +373,13 @@ public final class ResourceManager extends ComponentDefinition {
         // Simply start with the start of the random walk.
         PeerDescriptor descriptor = getNeighborForReschedulingUpdated(event, partnersDescriptor);
         if (descriptor == null) {
-            logger.info("~~ Not able to find the neighbor to reschedule the job ~~");
+//            logger.info("~~ Not able to find the neighbor to reschedule the job ~~");
             return false;
         }
 
         // Reschedule The Job.
         UUID resourceRequestUUID = addTaskToSchedulerList(event);
-        RescheduleJob rescheduledJob = new RescheduleJob(self, descriptor.getAddress(), event, resourceRequestUUID);
+        RescheduleJob rescheduledJob = new RescheduleJob(self, descriptor.getAddress(), event, null);
         trigger(rescheduledJob, networkPort);
 
         return true;
@@ -410,9 +438,19 @@ public final class ResourceManager extends ComponentDefinition {
      */
     private UUID addTaskToSchedulerList(RequestResource event) {
 
-        // Add to the scheduler list.
-        ApplicationJobDetail applicationJobDetail = new ApplicationJobDetail(event);
-        schedulerJobList.add(applicationJobDetail);
+        // Add to the scheduler list, if job not present.
+        boolean jobPresent = false;
+        for (ApplicationJobDetail jobDetail : schedulerJobList) {
+            if (jobDetail.getRequestId() == event.getId()) {
+                jobPresent = true;
+            }
+        }
+
+        if (!jobPresent) {
+            // Start Time gets distorted if not this.
+            ApplicationJobDetail applicationJobDetail = new ApplicationJobDetail(event);
+            schedulerJobList.add(applicationJobDetail);
+        }
 
 //        // Create a timeout event to check the progress of the task.
         ScheduleTimeout st = generateRequestResourceTimeout(event);
@@ -438,6 +476,7 @@ public final class ResourceManager extends ComponentDefinition {
             UUID timeoutId;
 
             if (useGradient) {
+//                logger.info(" Gradient Timeout ... ");
                 // Based on the request, check the dominant one.
                 ArrayList<PeerDescriptor> neighborsInfo = getGradientNeighborsBasedOnRequest(event);
                 PeerDescriptor peer = getNeighborForReschedulingUpdated(event, neighborsInfo);
@@ -471,6 +510,7 @@ public final class ResourceManager extends ComponentDefinition {
     /**
      * Simply schedule a resource request timeout.
      *
+     * @param event
      * @return timeoutId.
      */
     public ScheduleTimeout generateRequestResourceTimeout(RequestResource event) {
@@ -481,6 +521,30 @@ public final class ResourceManager extends ComponentDefinition {
         return st;
 
     }
+
+    /**
+     * Simply schedule a batch request resource timeout.
+     *
+     * @param event
+     * @return
+     */
+    public ScheduleTimeout generateBatchRequestResourceTimeout(BatchRequestResource event) {
+
+        // FIXME: To add timeout handler.
+        ScheduleTimeout st = new ScheduleTimeout(requestTimeout);
+        BatchResourceRequestTimeout timeout = new BatchResourceRequestTimeout(st, event);
+        st.setTimeoutEvent(timeout);
+        return st;
+
+    }
+
+    // FIXME: Complete the remaining functionality.
+    Handler<BatchResourceRequestTimeout> batchResourceRequestTimeout = new Handler<BatchResourceRequestTimeout>() {
+        @Override
+        public void handle(BatchResourceRequestTimeout event) {
+            logger.info(" Batch Resource Timeout Received .... ");
+        }
+    };
 
     /**
      * Initiate the scheduling of the task received at the node.
@@ -526,9 +590,19 @@ public final class ResourceManager extends ComponentDefinition {
      */
     private boolean cleanUpTheTaskAtScheduler(long requestId, UUID resourceRequestUUID) {
 
-        ApplicationJobDetail jobDetail = new ApplicationJobDetail(requestId);
-        if (schedulerJobList.contains(jobDetail)) {
+//        ApplicationJobDetail jobDetail = new ApplicationJobDetail(requestId);
+        ApplicationJobDetail jobDetail = null;
+        boolean jobPresent = false;
 
+        for (ApplicationJobDetail job : schedulerJobList) {
+            if (job.getRequestId() == requestId) {
+                jobPresent = true;
+                jobDetail = job;
+                break;
+            }
+        }
+
+        if (jobPresent) {
             schedulerJobList.remove(jobDetail);
             UUID timeoutId = requestIdToTimeoutIdMap.get(requestId);
             CancelTimeout cancelTimeout = new CancelTimeout(timeoutId);
@@ -599,7 +673,7 @@ public final class ResourceManager extends ComponentDefinition {
                 for (Address addr : workers) {
                     if (addr != self) {
                         // Send cancel Job Message to every other peer.
-                        CancelTask cancelTaskMessage = new CancelTask(self, addr, peerJobDetail.getRequestId());
+                        CancelTask cancelTaskMessage = new CancelTask(self, addr, peerJobDetail.getRequestId(), peerJobDetail.isBatchRequest(), peerJobDetail.withinBatchRequestId());
                         trigger(cancelTaskMessage, networkPort);
                     }
                 }
@@ -625,7 +699,8 @@ public final class ResourceManager extends ComponentDefinition {
             for (WorkerJobDetail workerJobDetail : workerJobList) {
 
                 // If task is queued, then delete the task from queue.
-                if (workerJobDetail.getRequestId() == event.getRequestId() && workerJobDetail.getJobStatus() == JobStatusEnum.QUEUED) {
+                // Added support for the batch requests also.
+                if (workerJobDetail.getRequestId() == event.getRequestId() && workerJobDetail.getJobStatus() == JobStatusEnum.QUEUED && workerJobDetail.withinBatchRequestId() == event.withinBatchRequestId()) {
                     requiredJobDetail = workerJobDetail;
                     break;
                 }
@@ -654,8 +729,9 @@ public final class ResourceManager extends ComponentDefinition {
                 workerJobList.remove(jobDetail);
             }
 
+//            logger.info(" Job Completed with request id: " + jobDetail.getRequestId() + " and within batch request id:  " + jobDetail.withinBatchRequestId()  + " at node with id: " + self.getId());
             //Step3:Send the completion request to the scheduler about the completion of the request.
-            JobCompletionEvent requestCompletionEvent = new JobCompletionEvent(self, jobDetail.getSchedulerAddress(), jobDetail.getRequestId(), jobDetail.getResourceRequestUUID());
+            JobCompletionEvent requestCompletionEvent = new JobCompletionEvent(self, jobDetail.getSchedulerAddress(), jobDetail.getRequestId(), jobDetail.getResourceRequestUUID(), jobDetail.isBatchRequest(), jobDetail.withinBatchRequestId());
             trigger(requestCompletionEvent, networkPort);
 
             //Check the available resources again, to see which jobs can be configured.
@@ -671,12 +747,59 @@ public final class ResourceManager extends ComponentDefinition {
         @Override
         public void handle(JobCompletionEvent event) {
 
+            // Handle the completion of batch request separately.
+            if (event.isBatchRequest()) {
+//                logger.info(" Completed Batch Request Received .... ");
+                cleanUpBatchRequestAtScheduler(event);
+                return;
+            }
+
+            long timeTaken = 0;
+            for (ApplicationJobDetail job : schedulerJobList) {
+                if (job.getRequestId() == event.getRequestId()) {
+                    timeTaken = job.calculateTime(System.currentTimeMillis());
+                }
+            }
+
             if (cleanUpTheTaskAtScheduler(event.getRequestId(), event.getResourceRequestUUID())) {
 //                logger.info("Request Completed: " + event.getRequestId() + " at: " + self.getId());
-                trigger(new RequestCompletion(event.getRequestId()), utilizationPort);
+                trigger(new RequestCompletion(event.getRequestId(), timeTaken), utilizationPort);
             }
         }
     };
+
+    private boolean cleanUpBatchRequestAtScheduler(JobCompletionEvent event) {
+
+        boolean isBatchRequestComplete = false;
+        BatchRequest batchRequest = null;
+
+        for (Map.Entry<BatchRequest, List<Long>> entry : schedulerBatchRequestMap.entrySet()) {
+
+            // Check if we have an entry in the map or not, for the request id.
+            if (entry.getKey().getBatchRequestId() == event.getRequestId()) {
+                //Check if a new request with batchh request has completed.
+                if (!entry.getValue().contains(event.withinbatchRequestId())) {
+                    // Update the completed requests.
+                    entry.getValue().add(event.withinbatchRequestId());
+
+                    //Check for the completion of the batch request.
+                    if (entry.getValue().size() == entry.getKey().getNumberOfMachines()) {
+                        System.out.println("Batch Request Complete..... ");
+                        isBatchRequestComplete = true;
+                        batchRequest = entry.getKey();
+                    }
+                }
+            }
+        }
+
+        if (isBatchRequestComplete) {
+            // remove the entry from the scheduler, if request completed.
+            logger.info(" Batch Request removed from the system .... ");
+            schedulerBatchRequestMap.remove(batchRequest);
+            return true;
+        }
+        return false;
+    }
 
 // Execute the job successfully.
     private void executeJob(WorkerJobDetail jobDetail) {
@@ -693,17 +816,17 @@ public final class ResourceManager extends ComponentDefinition {
      * @param neighboursSize
      * @return
      */
-    private List<Integer> getRandomIndexArray(int neighboursSize) {
+    private List<Integer> getRandomIndexArray(int neighboursSize, int probeValue) {
 
         List<Integer> randomIndexArray = new ArrayList<Integer>();
-        
-        if (neighboursSize <= probeRatio) {
+
+        if (neighboursSize <= probeValue) {
             // Add all the values in the random index array.
             for (int i = 0; i < neighboursSize; i++) {
                 randomIndexArray.add(i);
             }
         } else {
-            while (randomIndexArray.size() < probeRatio) {
+            while (randomIndexArray.size() < probeValue) {
                 boolean duplicate = false;
                 //Iterate over the index array.
                 int nextInt = random.nextInt(neighboursSize);
@@ -834,7 +957,7 @@ public final class ResourceManager extends ComponentDefinition {
      * @param entries
      * @return
      */
-    private PeerDescriptor getNeighborForRescheduling(RequestResource resourceRequest, List<PeerDescriptor> entries) {
+    private PeerDescriptor getNeighborForReschedulingUpdated(RequestResource resourceRequest, List<PeerDescriptor> entries) {
 
         int resourceToCompare;
         ResourceEnum dominantResource;
@@ -878,19 +1001,15 @@ public final class ResourceManager extends ComponentDefinition {
             }
 
             if (gradientBasedDescriptor == null) {
-//                logger.info("Gradient Null So Returning a Finger Based Neighbor.");
                 return fingerBasedDescriptor;
 
             } else if (fingerBasedDescriptor == null) {
-//                logger.info("Gradient Null So Returning a Finger Based Neighbor.");
                 return gradientBasedDescriptor;
             } else {
                 // Return the closest neighbor of the above two fetched.
                 if ((fingerBasedDescriptor.getFreeCpu() > resourceRequest.getNumCpus() && resourceRequest.getNumCpus() > gradientBasedDescriptor.getFreeCpu()) || Math.abs(fingerBasedDescriptor.getFreeCpu() - resourceRequest.getNumCpus()) < Math.abs(gradientBasedDescriptor.getFreeCpu() - resourceRequest.getNumCpus())) {
-//                   logger.info("Returning a Finger Based Neighbor ...");
                     return fingerBasedDescriptor;
                 } else {
-//                    logger.info("Returning Gradient Based Neighbor .... ");
                     return gradientBasedDescriptor;
                 }
             }
@@ -946,21 +1065,21 @@ public final class ResourceManager extends ComponentDefinition {
      * @param entries
      * @return
      */
-    private PeerDescriptor getNeighborForReschedulingUpdated(RequestResource resourceRequest, List<PeerDescriptor> entries) {
+    private PeerDescriptor getNeighborForRescheduling(RequestResource resourceRequest, List<PeerDescriptor> entries) {
 
         int personalResource;
         ResourceEnum dominantResource;
         List<PeerDescriptor> favourableNeighbors = new ArrayList<PeerDescriptor>();
         dominantResource = (isDominant(resourceRequest.getNumCpus() / 1.0, resourceRequest.getMemoryInMbs() / 1000.0)) ? (ResourceEnum.CPU) : ResourceEnum.MEMORY;
         PeerDescriptor descriptorToBeReturned = null;
-        
+
         if (dominantResource == ResourceEnum.CPU) {
             personalResource = availableResources.getNumFreeCpus();
-            
+
             if (personalResource < resourceRequest.getNumCpus()) {
                 // Check only for better entries in the similar neighborhood, as similar ones are not capable enough to satisfy the request.
                 for (PeerDescriptor peerDescriptor : entries) {
-                    if (peerDescriptor.getFreeCpu() > personalResource || peerDescriptor.getFreeCpu() >= resourceRequest.getNumCpus()) {
+                    if (peerDescriptor.getFreeCpu() >= personalResource || peerDescriptor.getFreeCpu() >= resourceRequest.getNumCpus()) {
                         favourableNeighbors.add(peerDescriptor);
                     }
                 }
@@ -975,23 +1094,29 @@ public final class ResourceManager extends ComponentDefinition {
 
             // Switch over to finger table entries in case no entry found from the similar neighborhood.
             if (favourableNeighbors.isEmpty()) {
-                
+
                 for (PeerDescriptor desc : cpuGradientFingerList) {
-                    if(desc.getFreeCpu() >= personalResource || desc.getFreeCpu() >= resourceRequest.getNumCpus() )
+                    if (desc.getFreeCpu() >= personalResource || desc.getFreeCpu() >= resourceRequest.getNumCpus()) {
                         favourableNeighbors.add(desc);
+                    }
                 }
             }
-            
+
+            if (!favourableNeighbors.isEmpty()) {
+                descriptorToBeReturned = favourableNeighbors.get(random.nextInt(favourableNeighbors.size()));
+            }
+
             //Finally return the selected neighbor.
-            descriptorToBeReturned = getSoftMaxAddress(favourableNeighbors, TEMPERATURE);
-            
+//            descriptorToBeReturned = getSoftMaxAddress(favourableNeighbors, TEMPERATURE);
         } else if (dominantResource == ResourceEnum.MEMORY) {
+
+//            logger.info(" Memory is dominant resource ... ");
             personalResource = availableResources.getFreeMemInMbs();
-            
-             if (personalResource < resourceRequest.getMemoryInMbs()) {
+
+            if (personalResource < resourceRequest.getMemoryInMbs()) {
                 // Check only for better entries in the similar neighborhood, as similar ones are not capable enough to satisfy the request.
                 for (PeerDescriptor peerDescriptor : entries) {
-                    if (peerDescriptor.getFreeMemory()> personalResource || peerDescriptor.getFreeMemory()>= resourceRequest.getMemoryInMbs()) {
+                    if (peerDescriptor.getFreeMemory() > personalResource || peerDescriptor.getFreeMemory() >= resourceRequest.getMemoryInMbs()) {
                         favourableNeighbors.add(peerDescriptor);
                     }
                 }
@@ -1006,15 +1131,17 @@ public final class ResourceManager extends ComponentDefinition {
 
             // Switch over to finger table entries in case no entry found from the similar neighborhood.
             if (favourableNeighbors.isEmpty()) {
-                
+
                 for (PeerDescriptor desc : memoryGradientFingerList) {
-                    if(desc.getFreeMemory() >= personalResource || desc.getFreeMemory() >= resourceRequest.getMemoryInMbs())
+                    if (desc.getFreeMemory() >= personalResource || desc.getFreeMemory() >= resourceRequest.getMemoryInMbs()) {
                         favourableNeighbors.add(desc);
+                    }
                 }
             }
-            
-            //Finally return the selected neighbor.
-            descriptorToBeReturned = getSoftMaxAddress(favourableNeighbors, TEMPERATURE);
+
+            if (!favourableNeighbors.isEmpty()) {
+                descriptorToBeReturned = favourableNeighbors.get(random.nextInt(favourableNeighbors.size()));
+            }
         }
 
         return descriptorToBeReturned;

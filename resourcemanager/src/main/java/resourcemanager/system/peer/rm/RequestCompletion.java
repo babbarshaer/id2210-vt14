@@ -15,13 +15,23 @@ import se.sics.kompics.Event;
 public class RequestCompletion extends Event{
 
     long requestId;
+    long timeTaken;
+    
+    public RequestCompletion(long requestId , long timeTaken){
+        this.requestId = requestId;
+        this.timeTaken = timeTaken;
+    }
     
     public RequestCompletion(long requestId){
         this.requestId = requestId;
+        this.timeTaken = 0;
     }
     
     public Long getId() {
         return requestId;
+    }
+    public Long getTimeTaken(){
+        return this.timeTaken;
     }
     
 }

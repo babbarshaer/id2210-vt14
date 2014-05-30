@@ -27,7 +27,7 @@ public class RescheduleJob extends Message {
     public RescheduleJob(Address source,  Address destination,  RequestResource resourceRequest, UUID resourceRequestUUID) {
         super(source,destination);
         this.resourceRequest = resourceRequest;
-        this.TTL = 3;
+        this.TTL = 5;
         this.dominantResourceRetries = 2;
         this.resourceRequestUUID = resourceRequestUUID;
     }

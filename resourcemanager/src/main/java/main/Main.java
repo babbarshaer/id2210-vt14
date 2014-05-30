@@ -6,8 +6,10 @@ import common.simulation.scenarios.BasicCPUBasedGradientScenario;
 import common.simulation.scenarios.BasicMemoryBasedGradientScenario;
 import common.simulation.scenarios.BasicScenario;
 import common.simulation.scenarios.BatchRequestScenario;
+import common.simulation.scenarios.CPUMemoryCombinationSimulation;
 import common.simulation.scenarios.CPUResourceGradientScenario;
 import common.simulation.scenarios.GradientScenario;
+import common.simulation.scenarios.ModifiedCPUBasedGradientScenario;
 import common.simulation.scenarios.Scenario;
 import common.simulation.scenarios.Scenario1;
 import common.simulation.scenarios.TestScenario;
@@ -19,7 +21,7 @@ public class Main {
         long seed = System.currentTimeMillis();
         Configuration configuration = new Configuration(seed);
 
-        Scenario scenario = new BasicCPUBasedGradientScenario();
+        Scenario scenario = new TestScenario();
         scenario.setSeed(seed);
         scenario.getScenario().simulate(DataCenterSimulationMain.class);
     }

@@ -138,7 +138,7 @@ public final class TManUpdated extends ComponentDefinition {
     private void printNodeViewResourceInfo() {
         List<PeerDescriptor> partnerDescriptors = gradientCache.getAll();
         for (PeerDescriptor partner : partnerDescriptors) {
-            logger.info("Node: " + self.getId() + " ~~ Self Cpu:  " + availableResources.getNumFreeCpus() + " ~~ PeerAddress: " + " ~~ Cpu: " + partner.getFreeCpu() + " ~~ Memory: " + partner.getFreeMemory() +  " ~~ View Size : " + partnerDescriptors.size());
+            logger.info("Node: " + self.getId() + " ~~ Self Memory:  " + availableResources.getFreeMemInMbs()+ " ~~ PeerAddress: " + " ~~ Cpu: " + partner.getFreeCpu() + " ~~ Memory: " + partner.getFreeMemory() +  " ~~ View Size : " + partnerDescriptors.size());
         }
     }
 
